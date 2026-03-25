@@ -221,60 +221,55 @@ def get_rsi_data():
     return pd.DataFrame(results)
 
 
-def generate_report(df):
-    """Genera el reporte formateado para Telegram."""
-    if df.empty:
+def generate_report(analysis, df):
+    """Genera el reporte formateado para Telegram (optimizado para < 4096 caracteres)."""
+    if df.empty or analysis is None:
         return "❌ No se pudieron obtener datos"
     
     now = datetime.now().strftime("%d/%m/%Y %H:%M")
-    
-    # Análisis por sector
-    sector_analysis = df.groupby('sector').agg({
-        'ticker': 'count',
-        'oversold': 'sum'
-    }).rename(columns={'ticker': 'total'})
-    
-    sector_analysis['pct'] = (
-        sector_analysis['oversold'] / sector_analysis['total'] * 100
-    ).round(1)
-    
-    sector_analysis = sector_analysis.sort_values('pct', ascending=False)
     
     # Estadísticas generales
     total = len(df)
     oversold_count = int(df['oversold'].sum())
     oversold_pct = round(oversold_count / total * 100, 1)
+    sectors_affected = len(analysis[analysis['oversold'] > 0])
+    total_sectors = len(analysis)
     
-    # Construir mensaje
-    msg = f"""📊 <b>S&P 500 RSI MONITOR</b>
-━━━━━━━━━━━━━━━━━━━━━━━━
+    # Barra compacta
+    def get_bar(pct, width=6):
+        filled = int(pct / 100 * width)
+        return '█' * filled + '░' * (width - filled)
+    
+    # Construir mensaje compacto
+    msg = f"""📊 <b>S&P 500 RSI</b>
+━━━━━━━━━━━━━━━━━━━━
 📅 {now}
 
-📈 <b>RESUMEN GENERAL</b>
-• Total: <b>{total}</b> acciones
-• Sobreventa (RSI&lt;30): <b>{oversold_count}</b>
-• Porcentaje: <b>{oversold_pct}%</b>
+📈 <b>RESUMEN</b>
+Analizados: <b>{total}</b> | Sobreventa: <b>{oversold_count}</b> (<b>{oversold_pct}%</b>)
+Sectores afectados: <b>{sectors_affected}/{total_sectors}</b>
 
 📉 <b>POR SECTOR</b>
 """
     
-    for sector, row in sector_analysis.iterrows():
-        bar_length = int(row['pct'] / 10)
-        bar = '█' * bar_length + '░' * (10 - bar_length)
-        msg += f"<code>{sector[:18]:18}</code> {bar} {row['pct']}%\n"
+    # Solo mostrar sectores con datos relevantes (>0% o top sectores)
+    top_sectors = analysis.head(8)  # Solo top 8 sectores
     
-    # Top sobrevendidas
+    for _, row in top_sectors.iterrows():
+        sector_short = row['sector'][:15]  # Acortar nombres
+        bar = get_bar(row['pct_oversold'], width=5)
+        msg += f"<code>{sector_short:15}</code> {bar} {row['pct_oversold']}%\n"
+    
+    # Top sobrevendidas (reducido a 5)
     if oversold_count > 0:
-        top_oversold = df[df['oversold']].nsmallest(10, 'rsi')
-        msg += f"\n🔴 <b>TOP SOBREVENDIDAS</b>\n"
-        for i, (_, stock) in enumerate(top_oversold.iterrows(), 1):
-            msg += f"{i}. {stock['ticker']}: RSI <b>{stock['rsi']:.1f}</b>\n"
+        top_oversold = df[df['oversold']].nsmallest(5, 'rsi')
+        msg += f"\n🔴 <b>TOP 5 SOBREVENTA</b>\n"
+        for _, stock in top_oversold.iterrows():
+            msg += f"• {stock['ticker']}: <b>{stock['rsi']:.1f}</b>\n"
     
-    msg += "\n━━━━━━━━━━━━━━━━━━━━━━━━\n"
-    msg += "💡 <i>RSI &lt; 30 = sobreventa</i>"
+    msg += "\n━━━━━━━━━━━━━━━━━━━━\n💡 <i>RSI &lt; 30 = sobreventa</i>"
     
     return msg
-
 
 @app.route('/')
 def index():

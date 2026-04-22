@@ -1,1 +1,93 @@
-{}
+{
+  "GS": {
+    "weight": 0.0769230769231374,
+    "entry_date": "2026-04-22",
+    "entry_price": 932.6699,
+    "ev_12m": 1034.0,
+    "kill_condition": "GS stock price falls below $800.0"
+  },
+  "LLY": {
+    "weight": 0.07692307692276905,
+    "entry_date": "2026-04-22",
+    "entry_price": 918.69,
+    "ev_12m": 1070.0,
+    "kill_condition": "LLY's stock price falls below $800.0"
+  },
+  "AMZN": {
+    "weight": 0.0769230769231374,
+    "entry_date": "2026-04-22",
+    "entry_price": 254.65,
+    "ev_12m": 317.5,
+    "kill_condition": "AMZN's quarterly revenue growth falls below 5% year-over-year"
+  },
+  "COST": {
+    "weight": 0.0769230769231374,
+    "entry_date": "2026-04-22",
+    "entry_price": 1004.5,
+    "ev_12m": 1142.5,
+    "kill_condition": "COST's quarterly revenue growth falls below 10% year-over-year"
+  },
+  "PLTR": {
+    "weight": 0.0769230769231374,
+    "entry_date": "2026-04-22",
+    "entry_price": 152.25,
+    "ev_12m": 180.5,
+    "kill_condition": "PLTR's stock price falls below $100.00"
+  },
+  "META": {
+    "weight": 0.0769230769231374,
+    "entry_date": "2026-04-22",
+    "entry_price": 675.48,
+    "ev_12m": 792.5,
+    "kill_condition": "META's stock price falls below $500.00"
+  },
+  "JPM": {
+    "weight": 0.0769230769231374,
+    "entry_date": "2026-04-22",
+    "entry_price": 312.76,
+    "ev_12m": 345.5,
+    "kill_condition": "JPM's stock price falls below $250.0"
+  },
+  "NOW": {
+    "weight": 0.07692307692296409,
+    "entry_date": "2026-04-22",
+    "entry_price": 103.2501,
+    "ev_12m": 117.5,
+    "kill_condition": "A 20% decline in the stock price from current levels"
+  },
+  "MA": {
+    "weight": 0.0769230769231374,
+    "entry_date": "2026-04-22",
+    "entry_price": 509.11,
+    "ev_12m": 562.5,
+    "kill_condition": "A 20% decline in the stock price from the current level"
+  },
+  "V": {
+    "weight": 0.0769230769231374,
+    "entry_date": "2026-04-22",
+    "entry_price": 310.56,
+    "ev_12m": 352.5,
+    "kill_condition": "A recession is officially declared by the NBER"
+  },
+  "AAPL": {
+    "weight": 0.0769230769231374,
+    "entry_date": "2026-04-22",
+    "entry_price": 272.705,
+    "ev_12m": 302.5,
+    "kill_condition": "AAPL's quarterly revenue growth falls below 5% year-over-year"
+  },
+  "AVGO": {
+    "weight": 0.07692307692297802,
+    "entry_date": "2026-04-22",
+    "entry_price": 419.92,
+    "ev_12m": 486.0,
+    "kill_condition": "AVGO's stock price falls below $350.0"
+  },
+  "AMD": {
+    "weight": 0.0769230769230523,
+    "entry_date": "2026-04-22",
+    "entry_price": 303.18,
+    "ev_12m": 349.0,
+    "kill_condition": "AMD's stock price falls below $220.0"
+  }
+}

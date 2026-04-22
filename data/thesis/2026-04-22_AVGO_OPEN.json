@@ -1,0 +1,15 @@
+{
+  "ticker": "AVGO",
+  "action": "OPEN",
+  "weight": 0.07692307692297802,
+  "timestamp": "2026-04-22T19:28:58.942858",
+  "price_at_thesis": 419.92,
+  "ev_12m": 486.0,
+  "expected_return_pct": 15.73633072966279,
+  "bear_downside_pct": -28.557820537245192,
+  "upside_downside_ratio": 0.5510340226817877,
+  "kill_condition": "AVGO's stock price falls below $350.0",
+  "key_catalyst": "Q2 earnings report on June 1, 2024",
+  "thesis_text": "---\nTHESIS: AVGO | OPEN | 7.7% | 2026-04-22T19:28:58.942858\n---\n**Setup:** The current macro context, with the Fed holding rates steady at 5.25% and a mid-cycle expansion stage, supports equities and provides a favorable environment for AVGO's growth. AVGO's strong revenue growth and high gross margins position the company for continued earnings growth, making it an attractive investment opportunity at the current price of $419.92.\n\n**Bull (45%):** AVGO's diversification across various markets, strong revenue growth, and high gross margins will drive earnings growth, and the current macro context will support equities, targeting a price of $580.00.\n\n**Base (30%):** AVGO's valuation is reasonable given its growth prospects, and the company's performance will be in line with expectations, but not exceeding them, targeting a price of $500.00.\n\n**Bear (25%):** AVGO's valuation is stretched given its PE ratio, and a potential downturn in the macro context could negatively impact the stock, while increasing competition and market saturation may slow down the company's growth, targeting a price of $300.00.\n\n**EV:** $486.00 (+15.7%) vs bear -28.6%. Ratio 0.55x.\n\n**Sizing:** The 7.7% position size is based on the balance between the potential upside and downside risks, considering the company's growth prospects, valuation, and the current macro context.\n\n**Kill:** AVGO's stock price falls below $350.0\n\n**Checkpoint:** Monitor AVGO's quarterly earnings reports and macroeconomic updates, particularly any changes in the Fed's monetary policy, to reassess the investment thesis and adjust the position size as needed.",
+  "macro_snapshot": "The current macro context is supportive for equities, with the Fed holding rates steady at 5.25%. We're in the mid-cycle expansion stage. Risk appetite is moderate, with VIX at 19.05. Sectors like tec"
+}

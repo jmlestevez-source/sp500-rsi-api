@@ -1,0 +1,15 @@
+{
+  "ticker": "COST",
+  "action": "OPEN",
+  "weight": 0.0769230769231374,
+  "timestamp": "2026-04-22T19:28:30.881293",
+  "price_at_thesis": 1004.5,
+  "ev_12m": 1142.5,
+  "expected_return_pct": 13.73817819810851,
+  "bear_downside_pct": -15.380786460925833,
+  "upside_downside_ratio": 0.8932038834951457,
+  "kill_condition": "COST's quarterly revenue growth falls below 10% year-over-year",
+  "key_catalyst": "Q4 earnings report on September 22, 2024",
+  "thesis_text": "---\nTHESIS: COST | OPEN | 7.7% | 2026-04-22T19:28:30.881293\n---\n**Setup:** The current macro context, with the Fed holding rates steady, supports equities and provides a favorable environment for Costco's strong revenue growth and high gross margins to drive earnings growth. With a relatively high valuation, the stock's upside potential may be limited, but the company's growth prospects and supportive macro context create an opportunity for investment.\n\n**Bull (45%):** Costco's strong revenue growth, driven by increasing membership and sales, and high gross margins will continue to drive earnings growth, supporting a bull case with a target price of $1300.00. The company's ability to maintain its competitive advantage through efficient operations and effective pricing strategies will also contribute to the bull case.\n\n**Base (30%):** The execution of Costco's growth strategy, including expansion into new markets and enhancement of its e-commerce platform, will be crucial in justifying its current valuation and achieving a target price of $1150.00. While the company's growth prospects are positive, the current valuation may limit significant multiple expansion, and the base case reflects a more modest growth scenario.\n\n**Bear (25%):** A potential slowdown in revenue growth or margin compression, driven by increasing competition or changing consumer behavior, could lead to a bear case with a target price of $850.00. The company's vulnerability to a pullback if growth expectations are not met, as suggested by the current 52-week range, also supports the bear case.\n\n**EV:** $1142.50 (+13.7%) vs bear -15.4%. Ratio 0.89x.\n**Sizing:** The position size of 7.7% reflects the balance between the potential upside driven by Costco's strong growth prospects and the downside risk associated with its high valuation and potential slowdown in growth.\n\n**Kill:** COST's quarterly revenue growth falls below 10% year-over-year\n**Checkpoint:** We will monitor Costco's quarterly earnings reports and revenue growth rates, as well as changes in the macro context, particularly any shifts in the Fed's monetary policy, to assess the progress of our investment thesis and adjust our position accordingly.",
+  "macro_snapshot": "The current macro context is supportive for equities, with the Fed holding rates steady at 5.25%. We're in the mid-cycle expansion stage. Risk appetite is moderate, with VIX at 19.05. Sectors like tec"
+}

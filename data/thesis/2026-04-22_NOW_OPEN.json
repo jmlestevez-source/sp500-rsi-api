@@ -1,0 +1,15 @@
+{
+  "ticker": "NOW",
+  "action": "OPEN",
+  "weight": 0.07692307692296409,
+  "timestamp": "2026-04-22T19:28:45.262458",
+  "price_at_thesis": 103.2501,
+  "ev_12m": 117.5,
+  "expected_return_pct": 13.80134256528565,
+  "bear_downside_pct": -22.518234849167218,
+  "upside_downside_ratio": 0.6128962886181133,
+  "kill_condition": "A 20% decline in the stock price from current levels",
+  "key_catalyst": "Q2 earnings report on August 15th",
+  "thesis_text": "---\nTHESIS: NOW | OPEN | 7.7% | 2026-04-22T19:28:45.262458\n---\n**Setup:** The current macro context, with the Fed holding rates steady, provides a supportive environment for equities, and NOW's strong revenue growth and high gross margins position the company for continued earnings growth. The stock's valuation, although stretched, is reasonable given its growth prospects, presenting an opportunity to invest at a relatively attractive price.\n\n**Bull (45%):** The company's strong revenue growth and high gross margins will continue to drive earnings growth, supporting a bull case with a target price of $140.00. This scenario is driven by the company's ability to maintain its competitive advantage and expand its market share.\n\n**Base (30%):** The company's valuation, with a PE of 20.55, is reasonable given its growth prospects, supporting a base case with a target price of $115.00. This scenario assumes the company will continue to execute on its growth strategy, maintaining stable margins and revenue growth.\n\n**Bear (25%):** The company's valuation is stretched, and a potential downturn in the economy could lead to a decline in earnings, supporting a bear case with a target price of $80.00. This scenario is driven by the risk of mean reversion and a potential decline in the company's revenue and earnings growth.\n\n**EV:** $117.50 (+13.8%) vs bear -22.5%. Ratio 0.61x.\n**Sizing:** We are allocating 7.7% of the portfolio to this position due to the company's strong growth prospects, reasonable valuation, and the current supportive macro context, which balances the potential risks and rewards.\n\n**Kill:** A 20% decline in the stock price from current levels\n**Checkpoint:** We will monitor the company's quarterly earnings reports, macroeconomic developments, and industry trends, with a specific checkpoint in 6 weeks to reassess the position and adjust the sizing as needed.",
+  "macro_snapshot": "The current macro context is supportive for equities, with the Fed holding rates steady at 5.25%. We're in the mid-cycle expansion stage. Risk appetite is moderate, with VIX at 19.05. Sectors like tec"
+}

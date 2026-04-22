@@ -1,0 +1,15 @@
+{
+  "ticker": "V",
+  "action": "OPEN",
+  "weight": 0.0769230769231374,
+  "timestamp": "2026-04-22T19:28:52.292407",
+  "price_at_thesis": 310.56,
+  "ev_12m": 352.5,
+  "expected_return_pct": 13.504636785162285,
+  "bear_downside_pct": -22.720247295208658,
+  "upside_downside_ratio": 0.5943877551020407,
+  "kill_condition": "A recession is officially declared by the NBER",
+  "key_catalyst": "Q2 earnings report on July 20th",
+  "thesis_text": "---\nTHESIS: V | OPEN | 7.7% | 2026-04-22T19:28:52.292407\n---\n**Setup:** The current macro context, with the Fed holding rates steady at 5.25%, provides a supportive environment for equities, and V's strong revenue growth and high gross margins position it for continued earnings growth. The stock's valuation, although high, reflects its strong fundamentals, presenting an opportunity to capitalize on potential upside.\n\n**Bull (45%):** The company's strong revenue growth and high gross margins will continue to drive earnings growth, leading to a re-rating of the stock and a potential target price of $410.00. This scenario is driven by the company's ability to maintain its competitive edge and expand its market share.\n\n**Base (30%):** The stock will trade in a range as investors wait for the next catalyst, with the company's valuation already reflecting its strong fundamentals, and a potential target price of $360.00. This scenario is driven by the mid-cycle expansion stage, which may lead to a period of consolidation.\n\n**Bear (25%):** The company's high valuation multiples, including a PE ratio of 21.34, make it vulnerable to a correction if earnings growth slows or the macro context deteriorates, with a potential target price of $240.00. A rise in interest rates or a recession could lead to a decline in the stock price.\n\n**EV:** $352.50 (+13.5%) vs bear -22.7%. Ratio 0.59x.\n**Sizing:** The 7.7% position size reflects the stock's attractive risk-reward profile, with a potential upside of 32.3% to the bull target and a potential downside of 22.7% to the bear target.\n\n**Kill:** A recession is officially declared by the NBER\n**Checkpoint:** Monitor the company's quarterly earnings reports and macroeconomic indicators, such as interest rates and GDP growth, to assess the likelihood of the bull, base, and bear scenarios, and adjust the position size accordingly.",
+  "macro_snapshot": "The current macro context is supportive for equities, with the Fed holding rates steady at 5.25%. We're in the mid-cycle expansion stage. Risk appetite is moderate, with VIX at 19.05. Sectors like tec"
+}

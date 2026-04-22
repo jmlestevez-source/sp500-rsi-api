@@ -55,11 +55,16 @@ def call_groq(
 
             messages = []
             if system:
-                messages.append({"role": "system", "content": system})
-            messages.append({"role": "user", "content": prompt})
+                messages.append(
+                    {"role": "system", "content": system}
+                )
+            messages.append(
+                {"role": "user", "content": prompt}
+            )
 
             r = requests.post(
-                "https://api.groq.com/openai/v1/chat/completions",
+                "https://api.groq.com/openai/v1/"
+                "chat/completions",
                 headers=headers,
                 json={
                     "model":       model,
@@ -71,24 +76,35 @@ def call_groq(
             )
 
             key = f"groq/{model}"
-            request_counts[key] = request_counts.get(key, 0) + 1
+            request_counts[key] = (
+                request_counts.get(key, 0) + 1
+            )
 
             if r.status_code == 429:
-                retry = int(r.headers.get("Retry-After", 15))
-                print(f"    Groq rate limit, esperando {retry}s...")
+                retry = int(
+                    r.headers.get("Retry-After", 15)
+                )
+                print(
+                    f"    Groq rate limit, "
+                    f"esperando {retry}s..."
+                )
                 time.sleep(retry + 2)
                 continue
 
             if r.status_code == 200:
                 content = (
-                    r.json()["choices"][0]["message"]["content"]
+                    r.json()
+                    ["choices"][0]["message"]["content"]
                 )
                 if content and content.strip():
                     short = model.split("-")[0]
                     print(f"    groq/{short} OK")
                     return content.strip()
 
-            print(f"    Groq {model}: HTTP {r.status_code}")
+            print(
+                f"    Groq {model}: "
+                f"HTTP {r.status_code}"
+            )
 
         except requests.exceptions.Timeout:
             print(f"    Groq {model}: timeout")
@@ -114,8 +130,9 @@ def call_gemini(
             time.sleep(1)
 
             r = requests.post(
-                f"https://generativelanguage.googleapis.com/v1beta"
-                f"/models/{model}:generateContent?key={api_key}",
+                "https://generativelanguage.googleapis.com"
+                f"/v1beta/models/{model}:generateContent"
+                f"?key={api_key}",
                 json={
                     "contents": [
                         {"parts": [{"text": prompt}]}
@@ -129,10 +146,15 @@ def call_gemini(
             )
 
             key = f"gemini/{model}"
-            request_counts[key] = request_counts.get(key, 0) + 1
+            request_counts[key] = (
+                request_counts.get(key, 0) + 1
+            )
 
             if r.status_code == 429:
-                print(f"    Gemini rate limit, esperando 15s...")
+                print(
+                    "    Gemini rate limit, "
+                    "esperando 15s..."
+                )
                 time.sleep(15)
                 continue
 
@@ -149,7 +171,10 @@ def call_gemini(
                     print(f"    gemini/{model} OK")
                     return content.strip()
 
-            print(f"    Gemini {model}: HTTP {r.status_code}")
+            print(
+                f"    Gemini {model}: "
+                f"HTTP {r.status_code}"
+            )
 
         except requests.exceptions.Timeout:
             print(f"    Gemini {model}: timeout")
@@ -158,7 +183,9 @@ def call_gemini(
             print(f"    Gemini {model}: {e}")
             continue
 
-    raise ValueError("Gemini: todos los modelos fallaron")
+    raise ValueError(
+        "Gemini: todos los modelos fallaron"
+    )
 
 
 def call_llm(
@@ -179,14 +206,17 @@ def call_llm(
             )
         except Exception as e:
             errors.append(f"Groq: {e}")
-            print(f"    Groq fallo, probando Gemini...")
+            print("    Groq fallo, probando Gemini...")
 
     if gemini_key:
         try:
             full = (
-                f"{system}\n\n{prompt}" if system else prompt
+                f"{system}\n\n{prompt}"
+                if system else prompt
             )
-            return call_gemini(full, max_tokens, temperature)
+            return call_gemini(
+                full, max_tokens, temperature
+            )
         except Exception as e:
             errors.append(f"Gemini: {e}")
 
@@ -204,8 +234,8 @@ def call_llm_json(
 ) -> dict:
     """
     Llamada LLM que garantiza respuesta JSON.
-    Usa system prompt estricto en ingles y reintenta
-    con Gemini si Groq no devuelve JSON valido.
+    Usa system prompt estricto y reintenta con
+    Gemini si Groq no devuelve JSON valido.
     """
     system = (
         "You are a financial analyst assistant. "
@@ -214,7 +244,6 @@ def call_llm_json(
         "or text before or after the JSON. "
         "Start your response directly with { "
         "and end with }. "
-        "All text values must be in English. "
         "All numbers must be numeric, not strings."
     )
 
@@ -222,57 +251,58 @@ def call_llm_json(
         f"{prompt}\n\n"
         "IMPORTANT: Your entire response must be "
         "a single valid JSON object. "
-        "Start with {{ and end with }}. "
+        "Start with { and end with }. "
         "No other text."
     )
 
     groq_key   = os.getenv("GROQ_API_KEY")
     gemini_key = os.getenv("GEMINI_API_KEY")
 
-    # Intento 1: Groq
     if groq_key:
         try:
             text = call_groq(
-                full_prompt, system, max_tokens, temperature
+                full_prompt, system, max_tokens,
+                temperature
             )
             return extract_json(text)
         except Exception as e:
             print(f"    Groq JSON fallo: {e}")
 
-    # Intento 2: Gemini
     if gemini_key:
         try:
             full = f"{system}\n\n{full_prompt}"
-            text = call_gemini(full, max_tokens, temperature)
+            text = call_gemini(
+                full, max_tokens, temperature
+            )
             return extract_json(text)
         except Exception as e:
             print(f"    Gemini JSON fallo: {e}")
 
     raise Exception(
-        f"No se pudo obtener JSON valido para '{task}'"
+        f"No se pudo obtener JSON valido "
+        f"para '{task}'"
     )
 
 
 def extract_json(text: str) -> dict:
-    """Extrae JSON aunque el modelo añada texto alrededor."""
-    # Intento directo
+    """Extrae JSON aunque el modelo añada texto."""
     try:
         return json.loads(text)
     except Exception:
         pass
 
-    # Buscar bloque ```json ... ```
     for marker in ["```json", "```"]:
         if marker in text:
             start = text.find(marker) + len(marker)
             end   = text.find("```", start)
             if end > start:
                 try:
-                    return json.loads(text[start:end].strip())
+                    return json.loads(
+                        text[start:end].strip()
+                    )
                 except Exception:
                     pass
 
-    # Buscar primer { hasta ultimo }
     start = text.find("{")
     end   = text.rfind("}") + 1
     if start != -1 and end > start:
@@ -308,7 +338,7 @@ def load_universe() -> list:
 def get_macro_context() -> str:
     print("  Obteniendo datos de mercado...")
     market_data = (
-        f"Date: {datetime.now().strftime('%Y-%m-%d')}\n"
+        f"Fecha: {datetime.now().strftime('%Y-%m-%d')}\n"
     )
 
     for label, ticker in {
@@ -332,22 +362,24 @@ def get_macro_context() -> str:
             pass
 
     system = (
-        "You are a macro analyst. "
-        "Respond in English only. "
-        "Be concise, specific and quantitative."
+        "Eres un analista macro experto. "
+        "Responde siempre en espanol. "
+        "Se conciso, especifico y cuantitativo."
     )
 
     prompt = (
         f"{market_data}\n"
-        "Describe the current macro context for a "
-        "long-only equity portfolio in max 120 words.\n"
-        "Include:\n"
-        "1. Fed stance and rates (quantified)\n"
-        "2. Economic cycle stage\n"
-        "3. Risk appetite (VIX reference)\n"
-        "4. Sectors with tailwind vs headwind\n"
-        "5. Top 2 macro risks next 3 months\n"
-        "Be specific and quantitative."
+        "Describe el contexto macro actual para un "
+        "portfolio long-only de renta variable "
+        "en maximo 120 palabras.\n"
+        "Incluye:\n"
+        "1. Postura de la Fed y tipos (cuantificado)\n"
+        "2. Fase del ciclo economico\n"
+        "3. Apetito por el riesgo (referencia VIX)\n"
+        "4. Sectores con viento de cola vs en contra\n"
+        "5. Top 2 riesgos macro proximos 3 meses\n"
+        "Se especifico y cuantitativo. "
+        "Sin frases genericas."
     )
 
     return call_llm(
@@ -408,19 +440,20 @@ def score_stock(ticker: str, macro_context: str) -> dict:
     macro_s = macro_context[:150]
 
     prompt = (
-        f"Score {ticker} from 0-100 on two dimensions.\n\n"
-        f"MACRO CONTEXT: {macro_s}\n\n"
-        f"DATA: price={price}, fwd_PE={fpe}, "
-        f"revenue_growth={growth}, gross_margins={margins}, "
-        f"sector={sector}, "
-        f"52w_range=[{low_52}, {high_52}]\n\n"
-        f"DESCRIPTION: {desc}\n\n"
-        "Return ONLY this JSON:\n"
+        f"Puntua {ticker} de 0 a 100 en dos "
+        f"dimensiones.\n\n"
+        f"CONTEXTO MACRO: {macro_s}\n\n"
+        f"DATOS: precio={price}, fwd_PE={fpe}, "
+        f"crecimiento_ingresos={growth}, "
+        f"margenes={margins}, sector={sector}, "
+        f"rango_52s=[{low_52}, {high_52}]\n\n"
+        f"DESCRIPCION: {desc}\n\n"
+        "Devuelve SOLO este JSON:\n"
         "{{\n"
-        '  "fundamental_score": <integer 0-100>,\n'
-        '  "forward_setup_score": <integer 0-100>,\n'
-        '  "key_risk": "<one sentence>",\n'
-        '  "key_catalyst": "<one sentence>"\n'
+        '  "fundamental_score": <entero 0-100>,\n'
+        '  "forward_setup_score": <entero 0-100>,\n'
+        '  "key_risk": "<una frase>",\n'
+        '  "key_catalyst": "<una frase>"\n'
         "}}"
     )
 
@@ -465,9 +498,13 @@ def score_universe(
         score = score_stock(ticker, macro_context)
         scores.append(score)
 
-    valid = [s for s in scores if s["composite_score"] > 0]
+    valid = [
+        s for s in scores
+        if s["composite_score"] > 0
+    ]
     valid.sort(
-        key=lambda x: x["composite_score"], reverse=True
+        key=lambda x: x["composite_score"],
+        reverse=True,
     )
     print(f"  {len(valid)} validos de {total}")
     return valid[:top_n]
@@ -489,35 +526,42 @@ def build_scenario(
     macro_s = macro_context[:150]
 
     prompt = (
-        f"Build 3 scenarios for {ticker} "
-        f"at current price ${price:.2f}.\n\n"
-        f"Key data: PE={fpe}, revenue_growth={growth}, "
-        f"gross_margins={margins}, "
-        f"52w_range=[{low_52}, {high_52}]\n\n"
+        f"Construye 3 escenarios para {ticker} "
+        f"a precio actual ${price:.2f}.\n\n"
+        f"Datos clave: PE={fpe}, "
+        f"crecimiento_ingresos={growth}, "
+        f"margenes={margins}, "
+        f"rango_52s=[{low_52}, {high_52}]\n\n"
         f"Macro: {macro_s}\n\n"
-        "Probabilities MUST sum to exactly 1.0.\n"
-        "Kill condition must be a concrete, "
-        "verifiable event.\n\n"
-        "Return ONLY this JSON:\n"
+        "Las probabilidades DEBEN sumar "
+        "exactamente 1.0.\n"
+        "La kill_condition debe ser un evento "
+        "CONCRETO y VERIFICABLE que invalide "
+        "la tesis estructural (no un stop loss "
+        "por precio). Ejemplo: caida de guidance, "
+        "perdida de cuota de mercado clave, "
+        "cambio regulatorio especifico.\n"
+        "Todos los textos en espanol.\n\n"
+        "Devuelve SOLO este JSON:\n"
         "{{\n"
         '  "prob_bull": <float>,\n'
         '  "prob_base": <float>,\n'
         '  "prob_bear": <float>,\n'
-        '  "targets_1m": {{"bull": <price>, '
-        '"base": <price>, "bear": <price>}},\n'
-        '  "targets_3m": {{"bull": <price>, '
-        '"base": <price>, "bear": <price>}},\n'
-        '  "targets_6m": {{"bull": <price>, '
-        '"base": <price>, "bear": <price>}},\n'
-        '  "targets_12m": {{"bull": <price>, '
-        '"base": <price>, "bear": <price>}},\n'
-        '  "bull_thesis": "<2 sentences>",\n'
-        '  "base_thesis": "<2 sentences>",\n'
-        '  "bear_thesis": "<2 sentences>",\n'
+        '  "targets_1m": {{"bull": <precio>, '
+        '"base": <precio>, "bear": <precio>}},\n'
+        '  "targets_3m": {{"bull": <precio>, '
+        '"base": <precio>, "bear": <precio>}},\n'
+        '  "targets_6m": {{"bull": <precio>, '
+        '"base": <precio>, "bear": <precio>}},\n'
+        '  "targets_12m": {{"bull": <precio>, '
+        '"base": <precio>, "bear": <precio>}},\n'
+        '  "bull_thesis": "<2 frases en espanol>",\n'
+        '  "base_thesis": "<2 frases en espanol>",\n'
+        '  "bear_thesis": "<2 frases en espanol>",\n'
         '  "kill_condition": '
-        '"<concrete verifiable event>",\n'
+        '"<evento concreto verificable en espanol>",\n'
         '  "key_catalyst": '
-        '"<next catalyst with date if known>"\n'
+        '"<proximo catalizador con fecha si existe>"\n'
         "}}"
     )
 
@@ -546,10 +590,12 @@ def build_scenario(
         ev_12m   = ev(r["targets_12m"])
         bear_12m = r["targets_12m"]["bear"]
         bd       = (
-            (bear_12m - price) / price if price else 0
+            (bear_12m - price) / price
+            if price else 0
         )
         wu       = (
-            (ev_12m - price) / price if price else 0
+            (ev_12m - price) / price
+            if price else 0
         )
         ratio    = abs(wu / bd) if bd != 0 else 0
 
@@ -569,13 +615,15 @@ def build_scenario(
             "ev_12m":                 ev_12m,
             "bear_case_downside_12m": bd,
             "upside_downside_ratio":  ratio,
-            "bull_thesis":  r.get("bull_thesis", "N/A"),
-            "base_thesis":  r.get("base_thesis", "N/A"),
-            "bear_thesis":  r.get("bear_thesis", "N/A"),
+            "bull_thesis":  r.get("bull_thesis",  "N/D"),
+            "base_thesis":  r.get("base_thesis",  "N/D"),
+            "bear_thesis":  r.get("bear_thesis",  "N/D"),
             "kill_condition": r.get(
-                "kill_condition", "N/A"
+                "kill_condition", "N/D"
             ),
-            "key_catalyst": r.get("key_catalyst", "N/A"),
+            "key_catalyst": r.get(
+                "key_catalyst", "N/D"
+            ),
         }
 
     except Exception as e:
@@ -586,8 +634,8 @@ def build_scenario(
             "ev_12m":                 price,
             "bear_case_downside_12m": -0.30,
             "upside_downside_ratio":  0,
-            "kill_condition":         "Error in generation",
-            "key_catalyst":           "N/A",
+            "kill_condition":         "Error en generacion",
+            "key_catalyst":           "N/D",
             "targets_12m": {
                 "bull": price * 1.2,
                 "base": price,
@@ -596,9 +644,9 @@ def build_scenario(
             "prob_bull":   0.25,
             "prob_base":   0.50,
             "prob_bear":   0.25,
-            "bull_thesis": "N/A",
-            "base_thesis": "N/A",
-            "bear_thesis": "N/A",
+            "bull_thesis": "N/D",
+            "base_thesis": "N/D",
+            "bear_thesis": "N/D",
         }
 
 
@@ -629,7 +677,10 @@ def optimize_portfolio(
     candidates = candidates[: max_pos * 2]
 
     if not candidates:
-        print("  Sin candidatos, manteniendo posiciones")
+        print(
+            "  Sin candidatos validos, "
+            "manteniendo posiciones"
+        )
         return {
             "weights":              current_weights,
             "expected_return":      0,
@@ -718,13 +769,17 @@ def optimize_portfolio(
         "weights":              fw,
         "expected_return":      port_ev,
         "risk_score":           port_risk,
-        "risk_adjusted_return": port_ev / (port_risk + 0.001),
+        "risk_adjusted_return": port_ev / (
+            port_risk + 0.001
+        ),
         "turnover_used":        turnover,
         "added_names":  [
-            t for t in fw if t not in current_weights
+            t for t in fw
+            if t not in current_weights
         ],
         "dropped_names": [
-            t for t in current_weights if t not in fw
+            t for t in current_weights
+            if t not in fw
         ],
     }
 
@@ -744,10 +799,12 @@ def generate_thesis(
         "targets_12m", {}
     ).get("bear", 0)
     ev_pct   = (
-        (ev_12m - price) / price * 100 if price else 0
+        (ev_12m - price) / price * 100
+        if price else 0
     )
     bear_pct = (
-        (bear_12m - price) / price * 100 if price else 0
+        (bear_12m - price) / price * 100
+        if price else 0
     )
     ratio    = scenario.get("upside_downside_ratio", 0)
     ts       = datetime.now().isoformat()
@@ -762,49 +819,65 @@ def generate_thesis(
     cat     = scenario.get("key_catalyst", "")
     macro_s = macro_summary[:150]
 
+    accion_es = {
+        "OPEN":  "ABRIR",
+        "ADD":   "ANADIR",
+        "TRIM":  "REDUCIR",
+        "CLOSE": "CERRAR",
+        "HOLD":  "MANTENER",
+    }.get(action, action)
+
     system = (
-        "You are a portfolio manager writing "
-        "investment theses. "
-        "Be direct, quantitative and specific. "
-        "No vague language. "
-        "Respond in English only."
+        "Eres un gestor de portfolio profesional. "
+        "Escribe en primera persona. "
+        "Se directo, cuantitativo y especifico. "
+        "Sin lenguaje vago. "
+        "Responde SIEMPRE en espanol."
     )
 
     prompt = (
-        f"Write the position thesis for "
-        f"{ticker} | {action} | {weight:.1%}.\n\n"
-        f"Price: ${price:.2f} | EV 12M: ${ev_12m:.2f} "
+        f"Escribe la tesis de posicion para "
+        f"{ticker} | {accion_es} | {weight:.1%}.\n\n"
+        f"Precio actual: ${price:.2f}\n"
+        f"Valor esperado 12M: ${ev_12m:.2f} "
         f"({ev_pct:+.1f}%)\n"
-        f"Bear target: ${bear_12m:.2f} ({bear_pct:.1f}%) "
-        f"| U/D ratio: {ratio:.2f}x\n"
-        f"Bull ({pb:.0%}): "
+        f"Objetivo bajista: ${bear_12m:.2f} "
+        f"({bear_pct:.1f}%)\n"
+        f"Ratio U/D: {ratio:.2f}x\n\n"
+        f"Caso alcista ({pb:.0%}): "
         f"{scenario.get('bull_thesis', '')}\n"
-        f"Base ({pba:.0%}): "
+        f"Caso base ({pba:.0%}): "
         f"{scenario.get('base_thesis', '')}\n"
-        f"Bear ({pbe:.0%}): "
-        f"{scenario.get('bear_thesis', '')}\n"
+        f"Caso bajista ({pbe:.0%}): "
+        f"{scenario.get('bear_thesis', '')}\n\n"
         f"Kill condition: {kill}\n"
-        f"Macro: {macro_s}\n\n"
-        f"Use this EXACT format:\n"
-        f"---\n"
-        f"THESIS: {ticker} | {action} | "
+        f"Catalizador: {cat}\n"
+        f"Contexto macro: {macro_s}\n\n"
+        "Usa este formato EXACTO:\n"
+        "---\n"
+        f"TESIS: {ticker} | {accion_es} | "
         f"{weight:.1%} | {ts}\n"
-        f"---\n"
-        f"**Setup:** [why the opportunity exists now, "
-        f"2 sentences]\n"
-        f"**Bull ({pb:.0%}):** "
-        f"[drivers. Target ${bull_t:.2f}]\n"
-        f"**Base ({pba:.0%}):** "
-        f"[execution. Target ${base_t:.2f}]\n"
-        f"**Bear ({pbe:.0%}):** "
-        f"[risks. Target ${bear_12m:.2f}]\n"
-        f"**EV:** ${ev_12m:.2f} ({ev_pct:+.1f}%) "
-        f"vs bear {bear_pct:.1f}%. "
-        f"Ratio {ratio:.2f}x.\n"
-        f"**Sizing:** [why {weight:.1%}]\n"
-        f"**Kill:** {kill}\n"
-        f"**Checkpoint:** [when and what to monitor]\n"
-        f"---"
+        "---\n"
+        "**Oportunidad:** [por que existe la "
+        "oportunidad ahora, 2 frases concretas]\n\n"
+        f"**Caso alcista ({pb:.0%}):** "
+        f"[drivers especificos. "
+        f"Objetivo ${bull_t:.2f}]\n\n"
+        f"**Caso base ({pba:.0%}):** "
+        f"[ejecucion esperada. "
+        f"Objetivo ${base_t:.2f}]\n\n"
+        f"**Caso bajista ({pbe:.0%}):** "
+        f"[riesgos principales. "
+        f"Objetivo ${bear_12m:.2f}]\n\n"
+        f"**Valor esperado:** ${ev_12m:.2f} "
+        f"({ev_pct:+.1f}%) vs bajista "
+        f"{bear_pct:.1f}%. Ratio {ratio:.2f}x.\n\n"
+        f"**Sizing:** [por que {weight:.1%} "
+        f"y no mas o menos]\n\n"
+        f"**Kill condition:** {kill}\n\n"
+        "**Proximo checkpoint:** "
+        "[cuando y que vigilar exactamente]\n"
+        "---"
     )
 
     try:
@@ -820,6 +893,7 @@ def generate_thesis(
     thesis = {
         "ticker":                ticker,
         "action":                action,
+        "accion":                accion_es,
         "weight":                weight,
         "timestamp":             ts,
         "price_at_thesis":       price,
@@ -867,31 +941,37 @@ def generate_rebalance_summary(
     macro_s     = macro_summary[:200]
 
     system = (
-        "You are a portfolio manager. "
-        "Write in first person. "
-        "Be direct and quantitative. "
-        "No vague language. "
-        "Respond in English only."
+        "Eres un gestor de portfolio profesional. "
+        "Escribe en primera persona. "
+        "Se directo y cuantitativo. "
+        "Sin lenguaje vago ni frases genericas. "
+        "Responde SIEMPRE en espanol."
     )
 
     prompt = (
-        "Write the weekly rebalance commentary. "
-        "Max 300 words. "
-        "First person, direct, quantitative.\n\n"
-        f"Portfolio:\n{lines}\n\n"
-        f"Changes: added={added_str}, "
-        f"dropped={dropped_str}\n"
-        f"Turnover: {turnover:.1%} of 30% max\n"
-        f"EV 12M: {ev:.1%} | Risk-adj: {risk_adj:.2f}x\n\n"
-        f"Macro: {macro_s}\n\n"
-        "Structure:\n"
-        "1. Macro and effect on the book\n"
-        "2. Changes and rationale\n"
-        "3. Positions held and why\n"
-        "4. Metrics\n"
-        "5. What to watch\n\n"
-        'End with: "Not advice, just how I\'m '
-        'sizing my own book."'
+        "Escribe el commentary del rebalanceo semanal "
+        "del portfolio. Maximo 300 palabras. "
+        "Primera persona, directo, cuantitativo. "
+        "Cada afirmacion debe ser especifica "
+        "y verificable.\n\n"
+        f"Portfolio resultante:\n{lines}\n\n"
+        f"Cambios: "
+        f"posiciones nuevas={added_str}, "
+        f"eliminadas={dropped_str}\n"
+        f"Turnover utilizado: {turnover:.1%} "
+        f"de 30% maximo\n"
+        f"EV 12M del portfolio: {ev:.1%}\n"
+        f"Retorno ajustado por riesgo: {risk_adj:.2f}x\n\n"
+        f"Contexto macro: {macro_s}\n\n"
+        "Estructura obligatoria:\n"
+        "1. Cambio macro esta semana y efecto "
+        "en el portfolio\n"
+        "2. Que se compro/vendio y por que\n"
+        "3. Que se mantiene y por que no se toco\n"
+        "4. Metricas del portfolio resultante\n"
+        "5. Que vigilar hasta el proximo rebalanceo\n\n"
+        'Termina con: "No es consejo de inversion, '
+        'es como estoy gestionando mi propio capital."'
     )
 
     try:
@@ -902,7 +982,7 @@ def generate_rebalance_summary(
             max_tokens=500,
         )
     except Exception as e:
-        return f"Error generating summary: {e}"
+        return f"Error generando commentary: {e}"
 
 
 # ── Email ─────────────────────────────────────────────────────────────────────
@@ -923,7 +1003,7 @@ def generate_email_report(
     if dropped:
         parts.append(f"-{','.join(dropped)}")
     changes_str = (
-        " ".join(parts) if parts else "no changes"
+        " ".join(parts) if parts else "sin cambios"
     )
 
     subject = (
@@ -935,19 +1015,23 @@ def generate_email_report(
     # Portfolio rows
     rows = ""
     for t, w in sorted(
-        result["weights"].items(), key=lambda x: -x[1]
+        result["weights"].items(),
+        key=lambda x: -x[1],
     ):
         pos    = positions.get(t, {})
         ev     = pos.get("ev_12m")
         entry  = pos.get("entry_price") or 0
         ev_str = f"${ev:.2f}" if ev else "-"
         rows += (
-            "<tr style='border-bottom:1px solid #eee'>"
+            "<tr style='border-bottom:"
+            "1px solid #eee'>"
             f"<td style='padding:8px'>"
             f"<strong>{t}</strong></td>"
             f"<td style='padding:8px'>{w:.1%}</td>"
-            f"<td style='padding:8px'>${entry:.2f}</td>"
-            f"<td style='padding:8px'>{ev_str}</td>"
+            f"<td style='padding:8px'>"
+            f"${entry:.2f}</td>"
+            f"<td style='padding:8px'>"
+            f"{ev_str}</td>"
             "</tr>"
         )
 
@@ -957,7 +1041,8 @@ def generate_email_report(
         kc = p.get("kill_condition", "")
         if kc:
             kills += (
-                "<tr style='border-bottom:1px solid #eee'>"
+                "<tr style='border-bottom:"
+                "1px solid #eee'>"
                 f"<td style='padding:8px'>"
                 f"<strong>{t}</strong></td>"
                 f"<td style='padding:8px'>"
@@ -972,8 +1057,9 @@ def generate_email_report(
         ev_pct   = th.get("expected_return_pct", 0)
         bear_pct = th.get("bear_downside_pct", 0)
         ratio    = th.get("upside_downside_ratio", 0)
-        kill     = th.get("kill_condition", "N/A")
-        text     = th.get("thesis_text", "N/A")
+        kill     = th.get("kill_condition", "N/D")
+        text     = th.get("thesis_text", "N/D")
+        accion   = th.get("accion", th.get("action", ""))
         ev_color = (
             "#28a745" if ev_pct > 0 else "#dc3545"
         )
@@ -981,17 +1067,20 @@ def generate_email_report(
             "<div style='border:1px solid #ddd;"
             "padding:15px;margin:10px 0;"
             "border-radius:5px'>"
-            f"<h3>{th['ticker']} | {th['action']} | "
+            f"<h3>{th['ticker']} | {accion} | "
             f"{th['weight']:.1%}</h3>"
-            f"<p>EV: <strong style='color:{ev_color}'>"
+            "<p>VE 12M: "
+            f"<strong style='color:{ev_color}'>"
             f"{ev_pct:+.1f}%</strong> | "
-            f"Bear: {bear_pct:.1f}% | "
-            f"U/D: {ratio:.2f}x</p>"
+            f"Bajista: {bear_pct:.1f}% | "
+            f"Ratio U/D: {ratio:.2f}x</p>"
             "<p style='background:#fff3cd;"
             "padding:10px;border-radius:3px'>"
-            f"<strong>Kill:</strong> {kill}</p>"
+            f"<strong>Kill condition:</strong> "
+            f"{kill}</p>"
             "<div style='white-space:pre-wrap;"
-            "font-family:Georgia,serif;line-height:1.6'>"
+            "font-family:Georgia,serif;"
+            "line-height:1.6'>"
             f"{text}</div></div>"
         )
 
@@ -1002,13 +1091,14 @@ def generate_email_report(
             "<table style='width:100%;"
             "border-collapse:collapse'>"
             "<thead>"
-            "<tr style='background:#dc3545;color:white'>"
-            "<th style='padding:10px;text-align:left'>"
-            "Ticker</th>"
-            "<th style='padding:10px;text-align:left'>"
-            "Weight</th>"
-            "<th style='padding:10px;text-align:left'>"
-            "Condition</th>"
+            "<tr style='background:#dc3545;"
+            "color:white'>"
+            "<th style='padding:10px;"
+            "text-align:left'>Ticker</th>"
+            "<th style='padding:10px;"
+            "text-align:left'>Peso</th>"
+            "<th style='padding:10px;"
+            "text-align:left'>Condicion</th>"
             "</tr></thead>"
             f"<tbody>{kills}</tbody></table>"
         )
@@ -1016,7 +1106,8 @@ def generate_email_report(
     thesis_section = ""
     if thesis_html:
         thesis_section = (
-            f"<h2>Thesis</h2>{thesis_html}"
+            f"<h2>Tesis de posicion</h2>"
+            f"{thesis_html}"
         )
 
     ev_port  = result["expected_return"]
@@ -1025,47 +1116,52 @@ def generate_email_report(
     n_pos    = len(result["weights"])
 
     body = (
-        "<!DOCTYPE html><html><body style='"
-        "font-family:Arial,sans-serif;"
+        "<!DOCTYPE html><html>"
+        "<body style='font-family:Arial,sans-serif;"
         "max-width:800px;margin:0 auto;padding:20px'>"
-        f"<h1 style='color:#1a1a2e'>"
-        f"Portfolio Rebalance {today}</h1>"
+        "<h1 style='color:#1a1a2e'>"
+        f"Rebalanceo Portfolio {today}</h1>"
         "<div style='display:flex;gap:15px;"
         "margin:20px 0;flex-wrap:wrap'>"
-        "<div style='background:#f8f9fa;padding:15px;"
-        "border-radius:8px;flex:1;min-width:110px;"
-        "text-align:center'>"
-        "<div style='font-size:22px;font-weight:bold;"
-        f"color:#28a745'>{ev_port:.1%}</div>"
+        "<div style='background:#f8f9fa;"
+        "padding:15px;border-radius:8px;"
+        "flex:1;min-width:110px;text-align:center'>"
+        "<div style='font-size:22px;"
+        "font-weight:bold;color:#28a745'>"
+        f"{ev_port:.1%}</div>"
         "<div style='color:#666;font-size:13px'>"
-        "EV 12M</div></div>"
-        "<div style='background:#f8f9fa;padding:15px;"
-        "border-radius:8px;flex:1;min-width:110px;"
-        "text-align:center'>"
-        "<div style='font-size:22px;font-weight:bold'>"
+        "VE 12M</div></div>"
+        "<div style='background:#f8f9fa;"
+        "padding:15px;border-radius:8px;"
+        "flex:1;min-width:110px;text-align:center'>"
+        "<div style='font-size:22px;"
+        "font-weight:bold'>"
         f"{risk_adj:.2f}x</div>"
         "<div style='color:#666;font-size:13px'>"
-        "Risk-Adj</div></div>"
-        "<div style='background:#f8f9fa;padding:15px;"
-        "border-radius:8px;flex:1;min-width:110px;"
-        "text-align:center'>"
-        "<div style='font-size:22px;font-weight:bold;"
-        f"color:#fd7e14'>{turnover:.1%}</div>"
+        "Ret. Ajustado</div></div>"
+        "<div style='background:#f8f9fa;"
+        "padding:15px;border-radius:8px;"
+        "flex:1;min-width:110px;text-align:center'>"
+        "<div style='font-size:22px;"
+        "font-weight:bold;color:#fd7e14'>"
+        f"{turnover:.1%}</div>"
         "<div style='color:#666;font-size:13px'>"
         "Turnover</div></div>"
-        "<div style='background:#f8f9fa;padding:15px;"
-        "border-radius:8px;flex:1;min-width:110px;"
-        "text-align:center'>"
-        "<div style='font-size:22px;font-weight:bold'>"
+        "<div style='background:#f8f9fa;"
+        "padding:15px;border-radius:8px;"
+        "flex:1;min-width:110px;text-align:center'>"
+        "<div style='font-size:22px;"
+        "font-weight:bold'>"
         f"{n_pos}</div>"
         "<div style='color:#666;font-size:13px'>"
-        "Positions</div></div></div>"
+        "Posiciones</div></div></div>"
         "<h2>Commentary</h2>"
-        "<div style='background:#f8f9fa;padding:20px;"
-        "border-radius:8px;white-space:pre-wrap;"
+        "<div style='background:#f8f9fa;"
+        "padding:20px;border-radius:8px;"
+        "white-space:pre-wrap;"
         "font-family:Georgia,serif;line-height:1.8'>"
         f"{summary}</div>"
-        "<h2>Portfolio</h2>"
+        "<h2>Portfolio actual</h2>"
         "<table style='width:100%;"
         "border-collapse:collapse'>"
         "<thead>"
@@ -1073,24 +1169,27 @@ def generate_email_report(
         "<th style='padding:10px;text-align:left'>"
         "Ticker</th>"
         "<th style='padding:10px;text-align:left'>"
-        "Weight</th>"
+        "Peso</th>"
         "<th style='padding:10px;text-align:left'>"
-        "Entry</th>"
+        "Entrada</th>"
         "<th style='padding:10px;text-align:left'>"
-        "EV 12M</th>"
+        "VE 12M</th>"
         "</tr></thead>"
         f"<tbody>{rows}</tbody></table>"
         f"{kills_section}"
         f"{thesis_section}"
         "<hr style='margin:30px 0'>"
         "<p style='color:#999;font-size:12px'>"
-        "Not advice, just how I'm sizing my own book."
+        "No es consejo de inversion, es como estoy "
+        "gestionando mi propio capital."
         "</p></body></html>"
     )
 
     Path("data").mkdir(parents=True, exist_ok=True)
     with open(
-        "data/email_report.json", "w", encoding="utf-8"
+        "data/email_report.json",
+        "w",
+        encoding="utf-8",
     ) as f:
         json.dump(
             {"subject": subject, "body": body},
@@ -1103,7 +1202,9 @@ def generate_email_report(
 
 # ── Guardar resultados ────────────────────────────────────────────────────────
 
-def save_results(result: dict, scenarios: dict) -> dict:
+def save_results(
+    result: dict, scenarios: dict
+) -> dict:
     today = datetime.now().strftime("%Y-%m-%d")
     ts    = datetime.now().isoformat()
 
@@ -1124,8 +1225,12 @@ def save_results(result: dict, scenarios: dict) -> dict:
         for ticker, weight in result["weights"].items()
     }
 
-    Path("data/positions").mkdir(parents=True, exist_ok=True)
-    with open("data/positions/current.json", "w") as f:
+    Path("data/positions").mkdir(
+        parents=True, exist_ok=True
+    )
+    with open(
+        "data/positions/current.json", "w"
+    ) as f:
         json.dump(positions, f, indent=2)
 
     rebalance = {
@@ -1137,7 +1242,9 @@ def save_results(result: dict, scenarios: dict) -> dict:
             "turnover": result["turnover_used"],
         },
         "metrics": {
-            "expected_return":      result["expected_return"],
+            "expected_return":      result[
+                "expected_return"
+            ],
             "risk_score":           result["risk_score"],
             "risk_adjusted_return": result[
                 "risk_adjusted_return"
@@ -1145,7 +1252,9 @@ def save_results(result: dict, scenarios: dict) -> dict:
         },
     }
 
-    Path("data/rebalances").mkdir(parents=True, exist_ok=True)
+    Path("data/rebalances").mkdir(
+        parents=True, exist_ok=True
+    )
     rb_path = Path(
         f"data/rebalances/{today}_rebalance.json"
     )
@@ -1161,7 +1270,7 @@ def save_results(result: dict, scenarios: dict) -> dict:
 def run_rebalance():
     print(f"\n{'='*60}")
     print(
-        "PORTFOLIO REBALANCE — "
+        "REBALANCEO PORTFOLIO — "
         f"{datetime.now().strftime('%Y-%m-%d %H:%M UTC')}"
     )
     print(f"{'='*60}\n")
@@ -1186,17 +1295,17 @@ def run_rebalance():
     current_positions = load_current_positions()
     universe          = load_universe()
     print(
-        f"Universe: {len(universe)} tickers | "
-        f"Posiciones: {len(current_positions)}\n"
+        f"Universo: {len(universe)} tickers | "
+        f"Posiciones actuales: {len(current_positions)}\n"
     )
 
     # 1. Macro
-    print("📊 Macro context...")
+    print("📊 Contexto macro...")
     macro = get_macro_context()
     print("✓ Macro listo\n")
 
     # 2. Scoring
-    print("🔍 Scoring universe...")
+    print("🔍 Scoring del universo...")
     scores = score_universe(universe, macro, top_n=20)
     if scores:
         top = scores[0]
@@ -1206,7 +1315,7 @@ def run_rebalance():
         )
 
     # 3. Scenarios
-    print("📐 Building scenarios...")
+    print("📐 Construyendo escenarios...")
     scenarios = {}
     for i, score in enumerate(scores):
         ticker = score["ticker"]
@@ -1214,16 +1323,18 @@ def run_rebalance():
         scenarios[ticker] = build_scenario(
             ticker, score["data_snapshot"], macro
         )
-    print(f"✓ {len(scenarios)} scenarios\n")
+    print(f"✓ {len(scenarios)} escenarios listos\n")
 
     # 4. Optimize
-    print("⚙️  Optimizing portfolio...")
+    print("⚙️  Optimizando portfolio...")
     current_weights = {
         t: p["weight"]
         for t, p in current_positions.items()
     }
     result = optimize_portfolio(
-        list(scenarios.values()), current_weights, config
+        list(scenarios.values()),
+        current_weights,
+        config,
     )
     print(
         f"✓ {len(result['weights'])} posiciones | "
@@ -1232,7 +1343,7 @@ def run_rebalance():
     )
 
     # 5. Thesis (solo cambios reales)
-    print("📝 Generating thesis...")
+    print("📝 Generando tesis...")
     all_thesis = []
     min_change = config["turnover"]["min_position_change"]
 
@@ -1251,23 +1362,35 @@ def run_rebalance():
 
         if action != "HOLD" and ticker in scenarios:
             thesis = generate_thesis(
-                ticker, scenarios[ticker],
-                weight, action, macro
+                ticker,
+                scenarios[ticker],
+                weight,
+                action,
+                macro,
             )
             all_thesis.append(thesis)
-            print(f"  ✓ {ticker} [{action}]")
+            accion = {
+                "OPEN":  "ABRIR",
+                "ADD":   "ANADIR",
+                "TRIM":  "REDUCIR",
+                "CLOSE": "CERRAR",
+            }.get(action, action)
+            print(f"  ✓ {ticker} [{accion}]")
 
     for ticker in result["dropped_names"]:
         if ticker in scenarios:
             thesis = generate_thesis(
-                ticker, scenarios[ticker],
-                0.0, "CLOSE", macro
+                ticker,
+                scenarios[ticker],
+                0.0,
+                "CLOSE",
+                macro,
             )
             all_thesis.append(thesis)
-            print(f"  ✓ {ticker} [CLOSE]")
+            print(f"  ✓ {ticker} [CERRAR]")
 
     # 6. Commentary
-    print("\n📣 Generating commentary...")
+    print("\n📣 Generando commentary...")
     summary              = generate_rebalance_summary(
         result, macro
     )
@@ -1283,23 +1406,23 @@ def run_rebalance():
         with open(rb_file, "w") as f:
             json.dump(rb, f, indent=2)
 
-    # 7. Guardar
+    # 7. Guardar posiciones
     positions = save_results(result, scenarios)
 
-    # 8. Email
+    # 8. Email report
     generate_email_report(
         result, all_thesis, summary, positions
     )
 
-    # 9. API usage
-    print("\n📊 API calls:")
+    # 9. Resumen uso API
+    print("\n📊 Llamadas API:")
     for model, count in sorted(
         request_counts.items(), key=lambda x: -x[1]
     ):
         print(f"   {model}: {count}")
 
     print(f"\n{'='*60}")
-    print("✅ Rebalance completo")
+    print("✅ Rebalanceo completado")
     print(f"{'='*60}\n")
     print(summary)
 

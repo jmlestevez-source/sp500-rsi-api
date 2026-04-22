@@ -8,6 +8,9 @@ on:
     - cron: "0 7 * * 4"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   rebalance:
     runs-on: ubuntu-latest

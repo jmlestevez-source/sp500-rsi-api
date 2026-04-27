@@ -1,7 +1,14 @@
+# Core
 yfinance>=0.2.40
 pandas>=2.0.0
-numpy>=1.24.0
-scipy>=1.11.0
-pyyaml>=6.0
-python-dotenv>=1.0.0
+numpy>=1.26.0
+scipy>=1.12.0
 requests>=2.31.0
+python-dotenv>=1.0.0
+pyyaml>=6.0.1
+lxml>=5.0.0
+beautifulsoup4>=4.12.0
+
+# Selenium (opcional, solo para PortfolioLabs)
+selenium>=4.18.0
+webdriver-manager>=4.0.1

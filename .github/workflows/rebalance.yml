@@ -40,19 +40,17 @@ jobs:
           github.event.inputs.use_portfoliolabs == 'true'
         uses: browser-actions/setup-chrome@v1
 
-      - name: Run rebalance
+      -       - name: Run rebalance
         env:
-          GROQ_API_KEY:        ${{ secrets.GROQ_API_KEY }}
-          GEMINI_API_KEY:      ${{ secrets.GEMINI_API_KEY }}
-          GITHUB_TOKEN:        ${{ secrets.PAT_TOKEN }}
-          GITHUB_REPO:         ${{ github.repository }}
-          USE_PORTFOLIOLABS: >
-            ${{ github.event.inputs.use_portfoliolabs
-                || 'false' }}
+          GROQ_API_KEY:     ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY:   ${{ secrets.GEMINI_API_KEY }}
+          GITHUB_TOKEN:     ${{ secrets.PAT_TOKEN }}
+          GITHUB_REPO:      ${{ github.repository }}
+          EMAIL_USERNAME:   ${{ secrets.EMAIL_USERNAME }}
+          EMAIL_PASSWORD:   ${{ secrets.EMAIL_PASSWORD }}
         run: |
           ARGS=""
-          if [ "${{ github.event.inputs.update_universe }}" \
-               = "true" ]; then
+          if [ "${{ github.event.inputs.update_universe }}" = "true" ]; then
             ARGS="--update-universe"
           fi
           python rebalance.py $ARGS

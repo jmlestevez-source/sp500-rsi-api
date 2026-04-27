@@ -1,17 +1,15 @@
 # src/email_report.py
 """
-Generación del email HTML completo con:
-- Performance real vs SPY
-- Operaciones ejecutadas con P&L
-- Tickers sin datos (advertencia)
-- Portfolio actual con rendimientos
-- Kill conditions
-- Tesis
+Generación del email HTML completo y envío via Gmail.
 """
 
+import os
 import json
-from pathlib import Path
-from datetime import datetime
+import smtplib
+from pathlib              import Path
+from datetime             import datetime
+from email.mime.text      import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 
 def _color(val: float, invert: bool = False) -> str:
@@ -28,33 +26,6 @@ def _pct_badge(val: float, suffix: str = "%") -> str:
         f"<span style='color:{color};"
         f"font-weight:bold'>"
         f"{sign}{val:.2f}{suffix}</span>"
-    )
-
-
-def _kpi_block(
-    value_html: str,
-    label: str,
-    kpi_style: str,
-) -> str:
-    return (
-        f"<div style='{kpi_style}'>"
-        f"<div style='font-size:22px;font-weight:bold'>"
-        f"{value_html}</div>"
-        f"<div style='color:#666;font-size:13px'>"
-        f"{label}</div></div>"
-    )
-
-
-def _colored_value(
-    val: float,
-    fmt: str = ".2f",
-    suffix: str = "%",
-) -> str:
-    color = _color(val)
-    sign  = "+" if val >= 0 else ""
-    return (
-        f"<span style='color:{color}'>"
-        f"{sign}{val:{fmt}}{suffix}</span>"
     )
 
 
@@ -108,13 +79,14 @@ def generate_email_report(
     spy_sign   = "+" if spy_ret  >= 0 else ""
     alpha_sign = "+" if alpha    >= 0 else ""
 
-    port_str  = f"{port_sign}{port_ret:.2f}%"
-    spy_str   = f"{spy_sign}{spy_ret:.2f}%"
-    alpha_str = f"{alpha_sign}{alpha:.2f}%"
-    ev_str    = f"{ev_val:.1%}"
-    to_str    = f"{result['turnover_used']:.1%}"
-    np_str    = str(len(result["weights"]))
-    ra_str    = f"{result['risk_adjusted_return']:.2f}x"
+    port_str   = f"{port_sign}{port_ret:.2f}%"
+    spy_str    = f"{spy_sign}{spy_ret:.2f}%"
+    alpha_str  = f"{alpha_sign}{alpha:.2f}%"
+    ev_str     = f"{ev_val:.1%}"
+    to_str     = f"{result['turnover_used']:.1%}"
+    np_str     = str(len(result["weights"]))
+    ra_val     = result["risk_adjusted_return"]
+    ra_str     = f"{ra_val:.2f}x"
 
     kpis = (
         f"<div style='{kpi_style}'>"
@@ -202,7 +174,7 @@ def generate_email_report(
 
     no_data_section = ""
     if no_data_tickers:
-        items = "".join(
+        items    = "".join(
             f"<li><code>{t}</code></li>"
             for t in sorted(no_data_tickers)
         )
@@ -216,10 +188,9 @@ def generate_email_report(
             f"Advertencia: {nd_count} tickers "
             f"sin datos fundamentales</h3>"
             "<p style='color:#856404;margin:5px 0'>"
-            "Estos tickers fueron excluidos del análisis "
-            "por no disponer de datos en Yahoo Finance. "
-            "Verifique que los símbolos son correctos "
-            "o que el ticker sigue cotizando.</p>"
+            "Estos tickers fueron excluidos del "
+            "análisis por no disponer de datos en "
+            "Yahoo Finance.</p>"
             "<ul style='columns:4;color:#856404'>"
             f"{items}</ul></div>"
         )
@@ -260,7 +231,8 @@ def generate_email_report(
         w_str = f"{w_before:.1%} &rarr; {w_after:.1%}"
 
         trades_rows += (
-            f"<tr style='border-bottom:1px solid #eee'>"
+            f"<tr style='border-bottom:"
+            f"1px solid #eee'>"
             f"<td style='padding:8px'>"
             f"<span style='background:{a_color};"
             f"color:white;padding:2px 8px;"
@@ -268,7 +240,8 @@ def generate_email_report(
             f"{a_label}</span></td>"
             f"<td style='padding:8px'>"
             f"<strong>{ticker}</strong></td>"
-            f"<td style='padding:8px'>${price:.2f}</td>"
+            f"<td style='padding:8px'>"
+            f"${price:.2f}</td>"
             f"<td style='padding:8px'>{w_str}</td>"
             f"<td style='padding:8px'>{pnl_str}</td>"
             f"</tr>"
@@ -281,19 +254,21 @@ def generate_email_report(
             "<table style='width:100%;"
             "border-collapse:collapse'>"
             "<thead>"
-            "<tr style='background:#343a40;color:white'>"
-            "<th style='padding:10px;text-align:left'>"
-            "Acción</th>"
-            "<th style='padding:10px;text-align:left'>"
-            "Ticker</th>"
-            "<th style='padding:10px;text-align:left'>"
-            "Precio</th>"
-            "<th style='padding:10px;text-align:left'>"
-            "Peso</th>"
-            "<th style='padding:10px;text-align:left'>"
-            "P&amp;L</th>"
+            "<tr style='background:#343a40;"
+            "color:white'>"
+            "<th style='padding:10px;"
+            "text-align:left'>Acción</th>"
+            "<th style='padding:10px;"
+            "text-align:left'>Ticker</th>"
+            "<th style='padding:10px;"
+            "text-align:left'>Precio</th>"
+            "<th style='padding:10px;"
+            "text-align:left'>Peso</th>"
+            "<th style='padding:10px;"
+            "text-align:left'>P&amp;L</th>"
             "</tr></thead>"
-            f"<tbody>{trades_rows}</tbody></table>"
+            f"<tbody>{trades_rows}</tbody>"
+            "</table>"
         )
 
     # ── Historial operaciones cerradas ─────────────────────
@@ -305,14 +280,14 @@ def generate_email_report(
     if closed_summary:
         win_rate  = closed_summary.get("win_rate_pct", 0.0)
         avg_pnl   = closed_summary.get("avg_pnl_pct",  0.0)
-        best_t_v  = closed_summary.get("best_trade",   0.0)
-        worst_t_v = closed_summary.get("worst_trade",  0.0)
+        best_tv   = closed_summary.get("best_trade",   0.0)
+        worst_tv  = closed_summary.get("worst_trade",  0.0)
         count     = closed_summary.get("count",        0)
 
-        wr_color  = _color(win_rate - 50)
-        ap_color  = _color(avg_pnl)
-        ap_sign   = "+" if avg_pnl   >= 0 else ""
-        bt_sign   = "+" if best_t_v  >= 0 else ""
+        wr_color = _color(win_rate - 50)
+        ap_color = _color(avg_pnl)
+        ap_sign  = "+" if avg_pnl  >= 0 else ""
+        bt_sign  = "+" if best_tv  >= 0 else ""
 
         closed_section = (
             "<h2>Historial operaciones cerradas</h2>"
@@ -325,26 +300,30 @@ def generate_email_report(
             f"Operaciones cerradas</div></div>"
 
             f"<div style='{kpi_style}'>"
-            f"<div style='{num_style};color:{wr_color}'>"
+            f"<div style='{num_style};"
+            f"color:{wr_color}'>"
             f"{win_rate:.1f}%</div>"
             f"<div style='color:#666;font-size:13px'>"
             f"Win rate</div></div>"
 
             f"<div style='{kpi_style}'>"
-            f"<div style='{num_style};color:{ap_color}'>"
+            f"<div style='{num_style};"
+            f"color:{ap_color}'>"
             f"{ap_sign}{avg_pnl:.2f}%</div>"
             f"<div style='color:#666;font-size:13px'>"
             f"P&amp;L promedio</div></div>"
 
             f"<div style='{kpi_style}'>"
-            f"<div style='{num_style};color:#28a745'>"
-            f"{bt_sign}{best_t_v:.2f}%</div>"
+            f"<div style='{num_style};"
+            f"color:#28a745'>"
+            f"{bt_sign}{best_tv:.2f}%</div>"
             f"<div style='color:#666;font-size:13px'>"
             f"Mejor trade</div></div>"
 
             f"<div style='{kpi_style}'>"
-            f"<div style='{num_style};color:#dc3545'>"
-            f"{worst_t_v:.2f}%</div>"
+            f"<div style='{num_style};"
+            f"color:#dc3545'>"
+            f"{worst_tv:.2f}%</div>"
             f"<div style='color:#666;font-size:13px'>"
             f"Peor trade</div></div>"
 
@@ -364,13 +343,13 @@ def generate_email_report(
         pos    = positions.get(t, {})
         detail = pos_map.get(t, {})
 
-        ev_12m  = pos.get("ev_12m")
-        entry   = detail.get("entry_price",   0) or 0
-        curr    = detail.get("current_price", 0) or 0
-        ret     = detail.get("ret_pct",       0) or 0
-        days    = detail.get("days_held",     0) or 0
+        ev_12m = pos.get("ev_12m")
+        entry  = detail.get("entry_price",   0) or 0
+        curr   = detail.get("current_price", 0) or 0
+        ret    = detail.get("ret_pct",       0) or 0
+        days   = detail.get("days_held",     0) or 0
 
-        ev_str  = f"${ev_12m:.2f}" if ev_12m else "-"
+        ev_disp = f"${ev_12m:.2f}" if ev_12m else "-"
         ret_c   = _color(ret)
         ret_sgn = "+" if ret >= 0 else ""
         ret_str = (
@@ -380,15 +359,18 @@ def generate_email_report(
         )
 
         rows += (
-            f"<tr style='border-bottom:1px solid #eee'>"
+            f"<tr style='border-bottom:"
+            f"1px solid #eee'>"
             f"<td style='padding:8px'>"
             f"<strong>{t}</strong></td>"
             f"<td style='padding:8px'>{w:.1%}</td>"
-            f"<td style='padding:8px'>${entry:.2f}</td>"
-            f"<td style='padding:8px'>${curr:.2f}</td>"
+            f"<td style='padding:8px'>"
+            f"${entry:.2f}</td>"
+            f"<td style='padding:8px'>"
+            f"${curr:.2f}</td>"
             f"<td style='padding:8px'>{ret_str}</td>"
             f"<td style='padding:8px'>{days}d</td>"
-            f"<td style='padding:8px'>{ev_str}</td>"
+            f"<td style='padding:8px'>{ev_disp}</td>"
             f"</tr>"
         )
 
@@ -396,9 +378,9 @@ def generate_email_report(
 
     kills = ""
     for t, p in positions.items():
-        kc = p.get("kill_condition", "")
+        kc    = p.get("kill_condition", "")
+        w_val = p.get("weight", 0)
         if kc:
-            w_val = p.get("weight", 0)
             kills += (
                 f"<tr style='border-bottom:"
                 f"1px solid #eee'>"
@@ -417,13 +399,14 @@ def generate_email_report(
             "<table style='width:100%;"
             "border-collapse:collapse'>"
             "<thead>"
-            "<tr style='background:#dc3545;color:white'>"
-            "<th style='padding:10px;text-align:left'>"
-            "Ticker</th>"
-            "<th style='padding:10px;text-align:left'>"
-            "Peso</th>"
-            "<th style='padding:10px;text-align:left'>"
-            "Condición</th>"
+            "<tr style='background:#dc3545;"
+            "color:white'>"
+            "<th style='padding:10px;"
+            "text-align:left'>Ticker</th>"
+            "<th style='padding:10px;"
+            "text-align:left'>Peso</th>"
+            "<th style='padding:10px;"
+            "text-align:left'>Condición</th>"
             "</tr></thead>"
             f"<tbody>{kills}</tbody></table>"
         )
@@ -441,9 +424,9 @@ def generate_email_report(
         t_ticker = th.get("ticker", "")
         t_weight = th.get("weight", 0.0)
 
-        ev_c       = _color(ev_pct)
-        ev_sign    = "+" if ev_pct >= 0 else ""
-        ev_badge   = (
+        ev_c     = _color(ev_pct)
+        ev_sign  = "+" if ev_pct >= 0 else ""
+        ev_badge = (
             f"<strong style='color:{ev_c}'>"
             f"{ev_sign}{ev_pct:.1f}%</strong>"
         )
@@ -498,7 +481,8 @@ def generate_email_report(
         "<div style='background:#f8f9fa;"
         "padding:20px;border-radius:8px;"
         "white-space:pre-wrap;"
-        "font-family:Georgia,serif;line-height:1.8'>"
+        "font-family:Georgia,serif;"
+        "line-height:1.8'>"
         f"{summary}</div>"
 
         f"{trades_section}"
@@ -536,6 +520,7 @@ def generate_email_report(
         "</p></body></html>"
     )
 
+    # Guardar JSON
     Path("data").mkdir(parents=True, exist_ok=True)
     with open(
         "data/email_report.json", "w", encoding="utf-8"
@@ -544,4 +529,86 @@ def generate_email_report(
             {"subject": subject, "body": body},
             f, indent=2, ensure_ascii=False,
         )
-    print("✓ Email report guardado")
+    print("  ✓ Email report guardado")
+
+
+# ── Envío via Gmail ───────────────────────────────────────────────────────────
+
+def send_email_report() -> bool:
+    """
+    Envía el email report guardado via Gmail SMTP.
+
+    Variables de entorno requeridas:
+      EMAIL_USERNAME  → tu cuenta Gmail
+      EMAIL_PASSWORD  → App Password de Gmail
+    """
+    username = os.getenv("EMAIL_USERNAME")
+    password = os.getenv("EMAIL_PASSWORD")
+
+    if not username or not password:
+        print(
+            "  ⚠ EMAIL_USERNAME o EMAIL_PASSWORD "
+            "no configurados."
+        )
+        return False
+
+    # Cargar el report generado
+    report_path = Path("data/email_report.json")
+    if not report_path.exists():
+        print(f"  ⚠ No existe {report_path}")
+        return False
+
+    report    = json.load(
+        open(report_path, encoding="utf-8")
+    )
+    subject   = report["subject"]
+    body_html = report["body"]
+
+    # Destinatario: EMAIL_TO si existe, sino el propio remitente
+    to_email = os.getenv("EMAIL_TO", username)
+
+    print(f"  De:    {username}")
+    print(f"  Para:  {to_email}")
+    print(f"  Asunto: {subject[:70]}...")
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"]    = username
+        msg["To"]      = to_email
+
+        text_plain = (
+            "Este email requiere un cliente "
+            "que soporte HTML."
+        )
+        msg.attach(
+            MIMEText(text_plain, "plain", "utf-8")
+        )
+        msg.attach(
+            MIMEText(body_html, "html", "utf-8")
+        )
+
+        with smtplib.SMTP_SSL(
+            "smtp.gmail.com", 465, timeout=30
+        ) as server:
+            server.login(username, password)
+            server.sendmail(
+                username,
+                to_email,
+                msg.as_string(),
+            )
+
+        print("  ✓ Email enviado correctamente")
+        return True
+
+    except smtplib.SMTPAuthenticationError as e:
+        print(f"  ✗ Error de autenticación: {e}")
+        print(
+            "  Verifica que EMAIL_PASSWORD sea "
+            "un App Password de Gmail."
+        )
+        return False
+
+    except Exception as e:
+        print(f"  ✗ Error enviando email: {e}")
+        return False

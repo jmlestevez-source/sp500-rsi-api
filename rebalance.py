@@ -1,8 +1,6 @@
 # rebalance.py
 """
 Orquestador principal del sistema de rebalanceo.
-Pipeline completo optimizado para Russell 1000.
-Timeout global: 50 minutos (para GitHub Actions de 60min).
 """
 
 import os
@@ -39,9 +37,6 @@ from src.email_report import (
     send_email_report,
 )
 
-
-# ── Timeout global ────────────────────────────────────────────────────────────
-
 MAX_RUNTIME_SECONDS = 50 * 60  # 50 minutos
 
 
@@ -52,8 +47,6 @@ class TimeoutError(Exception):
 def _timeout_handler(signum, frame):
     raise TimeoutError("Tiempo máximo excedido")
 
-
-# ── Config y estado ───────────────────────────────────────────────────────────
 
 def load_config() -> dict:
     with open("config/portfolio_config.yaml") as f:
@@ -104,8 +97,12 @@ def save_results(
         },
     }
 
-    Path("data/rebalances").mkdir(parents=True, exist_ok=True)
-    rb_path = Path(f"data/rebalances/{today}_rebalance.json")
+    Path("data/rebalances").mkdir(
+        parents=True, exist_ok=True
+    )
+    rb_path = Path(
+        f"data/rebalances/{today}_rebalance.json"
+    )
     with open(rb_path, "w") as f:
         json.dump(rebalance, f, indent=2)
 
@@ -127,18 +124,70 @@ def get_macro_context(macro_data: dict) -> str:
         "Responde siempre en español. "
         "Sé conciso, específico y cuantitativo."
     )
+    data_str = "\n".join(lines)
     prompt = (
-        f"Datos de mercado reales:\n"
-        f"{chr(10).join(lines)}\n\n"
+        f"Datos de mercado:\n{data_str}\n\n"
         "Describe el contexto macro actual para un "
-        "portfolio long-only en máximo 120 palabras.\n"
-        "Incluye: 1) Fed y tipos 2) Fase ciclo "
-        "3) VIX/riesgo 4) Sectores 5) Top 2 riesgos. "
+        "portfolio long-only en máximo 100 palabras. "
+        "Incluye: Fed/tipos, fase ciclo, VIX/riesgo, "
+        "sectores favorecidos, top 2 riesgos. "
         "Sin frases genéricas."
     )
     return call_llm(
         prompt, task="macro", system=system,
-        max_tokens=300,
+        max_tokens=250,
+    )
+
+
+def _generate_commentary_local(
+    result:       dict,
+    macro_context: str,
+    perf_metrics:  dict,
+) -> str:
+    """
+    Fallback: genera commentary sin LLM
+    usando solo los datos disponibles.
+    """
+    today    = datetime.now().strftime("%Y-%m-%d")
+    weights  = result["weights"]
+    added    = result["added_names"]
+    dropped  = result["dropped_names"]
+    turnover = result["turnover_used"]
+    ev       = result["expected_return"]
+    port_ret = perf_metrics.get("portfolio_return_pct", 0.0)
+    spy_ret  = perf_metrics.get("spy_return_pct",       0.0)
+    alpha    = perf_metrics.get("alpha_pct",             0.0)
+    n_pos    = len(weights)
+
+    # Top 5 posiciones
+    top5 = sorted(
+        weights.items(), key=lambda x: -x[1]
+    )[:5]
+    top5_str = ", ".join(
+        f"{t} ({w:.1%})" for t, w in top5
+    )
+
+    added_str   = ", ".join(added)   if added   else "ninguna"
+    dropped_str = ", ".join(dropped) if dropped else "ninguna"
+
+    p_sign = "+" if port_ret >= 0 else ""
+    s_sign = "+" if spy_ret  >= 0 else ""
+    a_sign = "+" if alpha    >= 0 else ""
+
+    return (
+        f"Rebalanceo {today}\n\n"
+        f"Contexto macro: {macro_context[:200]}\n\n"
+        f"Cambios ejecutados: Nuevas posiciones: "
+        f"{added_str}. Posiciones cerradas: "
+        f"{dropped_str}. Turnover: {turnover:.1%}.\n\n"
+        f"Portfolio resultante ({n_pos} posiciones): "
+        f"Principales: {top5_str}.\n\n"
+        f"Performance: Portfolio {p_sign}{port_ret:.2f}% | "
+        f"SPY {s_sign}{spy_ret:.2f}% | "
+        f"Alpha {a_sign}{alpha:.2f}%.\n\n"
+        f"EV 12M del portfolio: {ev:.1%}.\n\n"
+        "No es consejo de inversión, es como estoy "
+        "gestionando mi propio capital."
     )
 
 
@@ -153,6 +202,8 @@ def _generate_commentary(
     port_ret = perf_metrics.get("portfolio_return_pct", 0.0)
     spy_ret  = perf_metrics.get("spy_return_pct",       0.0)
     alpha    = perf_metrics.get("alpha_pct",             0.0)
+    to_val   = result["turnover_used"]
+    ev_val   = result["expected_return"]
 
     lines = "\n".join(
         f"  {t}: {w:.1%}"
@@ -163,36 +214,41 @@ def _generate_commentary(
 
     system = (
         "Eres un gestor de portfolio profesional. "
-        "Escribe en primera persona. "
-        "Directo, cuantitativo. Responde en español."
+        "Primera persona, español, directo, "
+        "cuantitativo, sin lenguaje vago."
     )
 
-    to_val = result["turnover_used"]
-    ev_val = result["expected_return"]
-
     prompt = (
-        "Commentary del rebalanceo semanal. "
-        "Máximo 300 palabras.\n\n"
+        "Commentary rebalanceo semanal. "
+        "Máximo 250 palabras.\n\n"
         f"Portfolio:\n{lines}\n\n"
         f"Cambios: +{added} -{dropped}\n"
-        f"Turnover: {to_val:.1%}\n"
-        f"EV 12M: {ev_val:.1%}\n\n"
+        f"Turnover: {to_val:.1%} | EV 12M: {ev_val:.1%}\n"
         f"Performance: Portfolio {port_ret:+.2f}% | "
         f"SPY {spy_ret:+.2f}% | Alpha {alpha:+.2f}%\n\n"
-        f"Macro: {macro_context[:200]}\n\n"
-        "Estructura: 1) Macro 2) Compras/ventas "
-        "3) Mantenidas 4) Performance vs SPY "
-        "5) Vigilar\n\n"
-        "Termina con: 'No es consejo de inversión.'"
+        f"Macro: {macro_context[:150]}\n\n"
+        "Estructura: 1)Macro 2)Compras/ventas "
+        "3)Mantenidas 4)Performance vs SPY "
+        "5)Vigilar\n\n"
+        "Termina: 'No es consejo de inversión, "
+        "es como estoy gestionando mi propio capital.'"
     )
 
     try:
-        return call_llm(
+        result_text = call_llm(
             prompt, task="commentary",
-            system=system, max_tokens=500,
+            system=system, max_tokens=400,
         )
+        print("  ✓ Commentary generado con LLM")
+        return result_text
     except Exception as e:
-        return f"Error: {e}"
+        print(
+            f"  ⚠ LLM falló para commentary: {e}\n"
+            f"  Usando fallback local."
+        )
+        return _generate_commentary_local(
+            result, macro_context, perf_metrics
+        )
 
 
 def _check_time(
@@ -200,30 +256,26 @@ def _check_time(
     step_name:   str,
     max_seconds: int = MAX_RUNTIME_SECONDS,
 ) -> None:
-    """Verifica que no hemos excedido el tiempo máximo."""
-    elapsed = time.time() - start_time
+    elapsed   = time.time() - start_time
     remaining = max_seconds - elapsed
-    if remaining < 120:  # menos de 2 minutos
+    if remaining < 180:
         raise TimeoutError(
             f"Abortando en {step_name}: "
-            f"quedan solo {remaining:.0f}s "
-            f"de {max_seconds}s máximos"
+            f"quedan {remaining:.0f}s"
         )
 
-
-# ── Main ──────────────────────────────────────────────────────────────────────
 
 def run_rebalance(
     force_universe_update: bool = False,
 ) -> dict:
     start_time = time.time()
 
-    # Configurar timeout por señal (solo Linux/Mac)
+    # Timeout por señal (Linux)
     try:
         signal.signal(signal.SIGALRM, _timeout_handler)
         signal.alarm(MAX_RUNTIME_SECONDS)
     except (AttributeError, ValueError):
-        pass  # Windows no soporta SIGALRM
+        pass
 
     print(f"\n{'='*60}")
     print(
@@ -232,26 +284,39 @@ def run_rebalance(
     )
     print(f"{'='*60}\n")
 
-    # Verificar credenciales
     groq_key   = os.getenv("GROQ_API_KEY")
     gemini_key = os.getenv("GEMINI_API_KEY")
     if not groq_key and not gemini_key:
-        raise Exception("Necesitas GROQ_API_KEY o GEMINI_API_KEY")
-    if groq_key:
-        print("✓ Groq disponible")
-    if gemini_key:
-        print("✓ Gemini disponible (backup)")
+        raise Exception(
+            "Necesitas GROQ_API_KEY o GEMINI_API_KEY"
+        )
+    if groq_key:   print("✓ Groq disponible")
+    if gemini_key: print("✓ Gemini disponible (backup)")
 
     email_user = os.getenv("EMAIL_USERNAME")
     if email_user:
-        print(f"✓ Email configurado: {email_user}")
+        print(f"✓ Email: {email_user}")
     else:
         print("⚠ Email no configurado")
 
     cache.cleanup_old(keep_days=2)
     config            = load_config()
     current_positions = load_current_positions()
-    print(f"Posiciones actuales: {len(current_positions)}\n")
+    print(
+        f"Posiciones actuales: "
+        f"{len(current_positions)}\n"
+    )
+
+    # Variables que necesitamos en el bloque finally
+    result          = {}
+    scenarios       = {}
+    positions       = {}
+    perf_metrics    = {}
+    all_thesis      = []
+    no_data_tickers = []
+    new_trades      = []
+    summary         = ""
+    macro_context   = ""
 
     try:
         # ── PASO 1: Universo ──────────────────────────────
@@ -259,12 +324,14 @@ def run_rebalance(
         print("PASO 1: Universo Russell 1000")
         print("=" * 50)
 
-        if force_universe_update:
-            universe_tickers = update_universe()
-        else:
-            universe_tickers = load_universe()
-
-        print(f"  Total: {len(universe_tickers)} tickers\n")
+        universe_tickers = (
+            update_universe()
+            if force_universe_update
+            else load_universe()
+        )
+        print(
+            f"  Total: {len(universe_tickers)} tickers\n"
+        )
 
         # ── PASO 2: Macro ─────────────────────────────────
         print("=" * 50)
@@ -311,7 +378,7 @@ def run_rebalance(
 
         prescreen_n = config.get(
             "screening", {}
-        ).get("prescreen_top_n", 100)
+        ).get("prescreen_top_n", 60)
 
         candidates, no_data_tickers = prescreening(
             fundamentals,
@@ -325,14 +392,14 @@ def run_rebalance(
 
         _check_time(start_time, "PASO 6")
 
-        # ── PASO 6: Scoring LLM ──────────────────────────
+        # ── PASO 6: Scoring LLM ───────────────────────────
         print("=" * 50)
         print("PASO 6: Scoring LLM (batches)")
         print("=" * 50)
 
         batch_size = config.get(
             "screening", {}
-        ).get("llm_batch_size", 8)
+        ).get("llm_batch_size", 10)
 
         stocks_to_score = [
             {**fundamentals[t], "ticker": t}
@@ -364,9 +431,7 @@ def run_rebalance(
         print("PASO 7: Escenarios")
         print("=" * 50)
 
-        scenarios: dict = {}
-        total_sc         = len(top_scored)
-
+        total_sc = len(top_scored)
         for i, s in enumerate(top_scored):
             _check_time(start_time, f"Escenario {i+1}")
             ticker    = s["ticker"]
@@ -403,7 +468,7 @@ def run_rebalance(
             f"EV {result['expected_return']:.1%}\n"
         )
 
-        # ── PASO 9: Registrar operaciones ─────────────────
+        # ── PASO 9: Operaciones ───────────────────────────
         print("=" * 50)
         print("PASO 9: Operaciones")
         print("=" * 50)
@@ -411,7 +476,9 @@ def run_rebalance(
         new_trades = record_trades(
             result, scenarios, current_positions,
         )
-        print(f"  ✓ {len(new_trades)} operaciones\n")
+        print(
+            f"  ✓ {len(new_trades)} operaciones\n"
+        )
 
         # ── PASO 10: Guardar posiciones ───────────────────
         print("=" * 50)
@@ -431,75 +498,26 @@ def run_rebalance(
         )
         update_performance(result, positions, scenarios)
 
-        port_ret = perf_metrics.get("portfolio_return_pct", 0.0)
-        spy_ret  = perf_metrics.get("spy_return_pct",       0.0)
-        alpha    = perf_metrics.get("alpha_pct",             0.0)
+        port_ret = perf_metrics.get(
+            "portfolio_return_pct", 0.0
+        )
+        spy_ret  = perf_metrics.get("spy_return_pct", 0.0)
+        alpha    = perf_metrics.get("alpha_pct",       0.0)
 
         p_s = "+" if port_ret >= 0 else ""
         s_s = "+" if spy_ret  >= 0 else ""
         a_s = "+" if alpha    >= 0 else ""
-
         print(
             f"  Portfolio: {p_s}{port_ret:.2f}% | "
             f"SPY: {s_s}{spy_ret:.2f}% | "
             f"Alpha: {a_s}{alpha:.2f}%\n"
         )
 
-        _check_time(start_time, "PASO 12")
-
-        # ── PASO 12: Tesis ────────────────────────────────
+        # ── PASO 12: Commentary ───────────────────────────
+        # Se genera ANTES de las tesis para aprovechar
+        # que los modelos aún no tienen rate limit
         print("=" * 50)
-        print("PASO 12: Tesis")
-        print("=" * 50)
-
-        all_thesis = []
-        min_change = config["turnover"]["min_position_change"]
-
-        for ticker, weight in result["weights"].items():
-            old_w = current_weights.get(ticker, 0.0)
-            diff  = weight - old_w
-
-            if ticker in result["added_names"]:
-                action = "OPEN"
-            elif diff >= min_change:
-                action = "ADD"
-            elif diff <= -min_change:
-                action = "TRIM"
-            else:
-                action = "HOLD"
-
-            if action != "HOLD" and ticker in scenarios:
-                _check_time(start_time, f"Tesis {ticker}")
-                thesis = generate_thesis(
-                    ticker, scenarios[ticker],
-                    weight, action, macro_context,
-                )
-                all_thesis.append(thesis)
-                labels = {
-                    "OPEN": "ABRIR",
-                    "ADD":  "AÑADIR",
-                    "TRIM": "REDUCIR",
-                }
-                print(
-                    f"  ✓ {ticker} "
-                    f"[{labels.get(action, action)}]"
-                )
-
-        for ticker in result["dropped_names"]:
-            if ticker in scenarios:
-                _check_time(start_time, f"Tesis {ticker}")
-                thesis = generate_thesis(
-                    ticker, scenarios[ticker],
-                    0.0, "CLOSE", macro_context,
-                )
-                all_thesis.append(thesis)
-                print(f"  ✓ {ticker} [CERRAR]")
-
-        print()
-
-        # ── PASO 13: Commentary ───────────────────────────
-        print("=" * 50)
-        print("PASO 13: Commentary")
+        print("PASO 12: Commentary")
         print("=" * 50)
 
         summary = _generate_commentary(
@@ -520,7 +538,68 @@ def run_rebalance(
             except Exception:
                 pass
 
-        print("  ✓ Commentary generado\n")
+        print()
+
+        # ── PASO 13: Tesis ────────────────────────────────
+        print("=" * 50)
+        print("PASO 13: Tesis")
+        print("=" * 50)
+
+        min_change = config["turnover"][
+            "min_position_change"
+        ]
+
+        for ticker, weight in result["weights"].items():
+            old_w  = current_weights.get(ticker, 0.0)
+            diff   = weight - old_w
+
+            if ticker in result["added_names"]:
+                action = "OPEN"
+            elif diff >= min_change:
+                action = "ADD"
+            elif diff <= -min_change:
+                action = "TRIM"
+            else:
+                action = "HOLD"
+
+            if action != "HOLD" and ticker in scenarios:
+                _check_time(
+                    start_time, f"Tesis {ticker}"
+                )
+                thesis = generate_thesis(
+                    ticker,
+                    scenarios[ticker],
+                    weight,
+                    action,
+                    macro_context,
+                )
+                all_thesis.append(thesis)
+                labels = {
+                    "OPEN": "ABRIR",
+                    "ADD":  "AÑADIR",
+                    "TRIM": "REDUCIR",
+                }
+                print(
+                    f"  ✓ {ticker} "
+                    f"[{labels.get(action, action)}]"
+                )
+
+        for ticker in result["dropped_names"]:
+            if ticker in scenarios:
+                _check_time(
+                    start_time, f"Tesis {ticker}"
+                )
+                thesis = generate_thesis(
+                    ticker,
+                    scenarios[ticker],
+                    0.0,
+                    "CLOSE",
+                    macro_context,
+                )
+                all_thesis.append(thesis)
+                print(f"  ✓ {ticker} [CERRAR]")
+
+        print()
 
         # ── PASO 14: Email ────────────────────────────────
         print("=" * 50)
@@ -542,19 +621,24 @@ def run_rebalance(
 
     except TimeoutError as e:
         print(f"\n⚠ TIMEOUT: {e}")
-        print("Intentando enviar email con lo que hay...")
+        print("Enviando email con lo disponible...")
 
-        # Intentar enviar email parcial
+        # Generar commentary local si no lo tenemos
+        if not summary and result:
+            summary = _generate_commentary_local(
+                result, macro_context, perf_metrics
+            )
+
         try:
-            if "result" in dir() and "positions" in dir():
+            if result:
                 generate_email_report(
                     result          = result,
-                    all_thesis      = all_thesis if "all_thesis" in dir() else [],
-                    summary         = summary if "summary" in dir() else "Timeout",
+                    all_thesis      = all_thesis,
+                    summary         = summary,
                     positions       = positions,
-                    perf_metrics    = perf_metrics if "perf_metrics" in dir() else {},
-                    no_data_tickers = no_data_tickers if "no_data_tickers" in dir() else [],
-                    new_trades      = new_trades if "new_trades" in dir() else [],
+                    perf_metrics    = perf_metrics,
+                    no_data_tickers = no_data_tickers,
+                    new_trades      = new_trades,
                 )
                 send_email_report()
         except Exception as e2:
@@ -567,7 +651,6 @@ def run_rebalance(
         raise
 
     finally:
-        # Cancelar alarma
         try:
             signal.alarm(0)
         except (AttributeError, ValueError):
@@ -589,13 +672,11 @@ def run_rebalance(
     ):
         print(f"   {model}: {count}")
 
-    if "summary" in dir():
+    if summary:
         print(f"\n{summary}\n")
 
-    return result if "result" in dir() else {}
+    return result
 
-
-# ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     import argparse

@@ -1,9 +1,10 @@
 # src/data_fetcher.py
 """
-Descarga de datos de mercado:
-- Paralela con ThreadPoolExecutor
-- Caché diaria para evitar repetir llamadas
-- Descarga histórica en batch con yfinance.download()
+Descarga de datos optimizada:
+- Histórico de precios en batch (yf.download)
+- Fundamentales en paralelo con timeout corto
+- Caché diaria
+- Skip de tickers problemáticos
 """
 
 import time
@@ -16,9 +17,8 @@ from pathlib import Path
 from datetime import datetime
 
 
-# ── Caché ─────────────────────────────────────────────────────────────────────
-
 CACHE_DIR = Path("data/cache")
+
 
 class DataCache:
     def __init__(self):
@@ -27,7 +27,11 @@ class DataCache:
 
     def _path(self, key: str) -> Path:
         today = datetime.now().strftime("%Y-%m-%d")
-        safe  = key.replace("/", "_").replace("^", "X")
+        safe  = (
+            key.replace("/", "_")
+            .replace("^", "X")
+            .replace(".", "_")
+        )
         return CACHE_DIR / f"{safe}_{today}.pkl"
 
     def get(self, key: str):
@@ -41,30 +45,33 @@ class DataCache:
         return None
 
     def set(self, key: str, data) -> None:
-        p = self._path(key)
         try:
             with self._lock:
-                pickle.dump(data, open(p, "wb"))
+                pickle.dump(
+                    data, open(self._path(key), "wb")
+                )
         except Exception:
             pass
 
-    def cleanup_old(self, keep_days: int = 3) -> None:
-        """Borra cachés de más de keep_days días."""
+    def cleanup_old(self, keep_days: int = 2) -> None:
         today = datetime.now().strftime("%Y-%m-%d")
+        count = 0
         for f in CACHE_DIR.glob("*.pkl"):
             if today not in f.name:
                 try:
                     f.unlink()
+                    count += 1
                 except Exception:
                     pass
+        if count:
+            print(f"  Caché: {count} archivos antiguos eliminados")
+
 
 cache = DataCache()
 
 
-# ── Rate limiter ──────────────────────────────────────────────────────────────
-
 class RateLimiter:
-    def __init__(self, calls_per_second: float = 3.0):
+    def __init__(self, calls_per_second: float = 2.0):
         self.min_interval = 1.0 / calls_per_second
         self.last_called  = 0.0
         self._lock        = threading.Lock()
@@ -76,51 +83,14 @@ class RateLimiter:
                 time.sleep(self.min_interval - elapsed)
             self.last_called = time.time()
 
-yf_limiter = RateLimiter(calls_per_second=3.0)
+
+yf_limiter = RateLimiter(calls_per_second=2.0)
 
 
 # ── Fundamentales ─────────────────────────────────────────────────────────────
 
-FUNDAMENTAL_FIELDS = {
-    "price":          ("currentPrice", "regularMarketPrice"),
-    "forward_pe":     ("forwardPE",),
-    "trailing_pe":    ("trailingPE",),
-    "revenue_growth": ("revenueGrowth",),
-    "earnings_growth":("earningsGrowth",),
-    "gross_margins":  ("grossMargins",),
-    "operating_margins": ("operatingMargins",),
-    "free_cashflow":  ("freeCashflow",),
-    "market_cap":     ("marketCap",),
-    "enterprise_value": ("enterpriseValue",),
-    "ev_to_ebitda":   ("enterpriseToEbitda",),
-    "debt_to_equity": ("debtToEquity",),
-    "current_ratio":  ("currentRatio",),
-    "roe":            ("returnOnEquity",),
-    "roa":            ("returnOnAssets",),
-    "52w_high":       ("fiftyTwoWeekHigh",),
-    "52w_low":        ("fiftyTwoWeekLow",),
-    "beta":           ("beta",),
-    "dividend_yield": ("dividendYield",),
-    "sector":         ("sector",),
-    "industry":       ("industry",),
-    "description":    ("longBusinessSummary",),
-    "employees":      ("fullTimeEmployees",),
-    "country":        ("country",),
-}
-
-def _get_field(info: dict, keys: tuple):
-    for k in keys:
-        v = info.get(k)
-        if v is not None:
-            return v
-    return None
-
-
 def fetch_fundamentals(ticker: str) -> dict:
-    """
-    Descarga fundamentales de un ticker.
-    Usa caché diaria. Thread-safe.
-    """
+    """Descarga fundamentales de un ticker con caché."""
     cached = cache.get(f"fund_{ticker}")
     if cached is not None:
         return cached
@@ -131,143 +101,200 @@ def fetch_fundamentals(ticker: str) -> dict:
     try:
         info = yf.Ticker(ticker).info
 
-        for field, keys in FUNDAMENTAL_FIELDS.items():
-            v = _get_field(info, keys)
-            # Truncar descripción
-            if field == "description" and v:
-                v = str(v)[:300]
-            result[field] = v
+        # Si info está vacío o tiene error, salir rápido
+        if not info or info.get("regularMarketPrice") is None:
+            price = info.get("currentPrice")
+            if price is None:
+                result["_error"] = "no_price"
+                cache.set(f"fund_{ticker}", result)
+                return result
 
-        # Verificar que tenemos precio mínimo
-        result["_data_ok"] = result.get("price") is not None
-        result["_fetched_at"] = datetime.now().isoformat()
+        fields = {
+            "price":             ("currentPrice",
+                                  "regularMarketPrice"),
+            "forward_pe":        ("forwardPE",),
+            "trailing_pe":       ("trailingPE",),
+            "revenue_growth":    ("revenueGrowth",),
+            "earnings_growth":   ("earningsGrowth",),
+            "gross_margins":     ("grossMargins",),
+            "operating_margins": ("operatingMargins",),
+            "free_cashflow":     ("freeCashflow",),
+            "market_cap":        ("marketCap",),
+            "ev_to_ebitda":      ("enterpriseToEbitda",),
+            "debt_to_equity":    ("debtToEquity",),
+            "roe":               ("returnOnEquity",),
+            "beta":              ("beta",),
+            "52w_high":          ("fiftyTwoWeekHigh",),
+            "52w_low":           ("fiftyTwoWeekLow",),
+            "sector":            ("sector",),
+            "industry":          ("industry",),
+        }
 
+        for field, keys in fields.items():
+            for k in keys:
+                v = info.get(k)
+                if v is not None:
+                    result[field] = v
+                    break
+
+        result["_data_ok"] = (
+            result.get("price") is not None
+        )
         cache.set(f"fund_{ticker}", result)
 
     except Exception as e:
-        result["_error"] = str(e)
+        err = str(e)[:100]
+        result["_error"] = err
+        cache.set(f"fund_{ticker}", result)
 
     return result
 
 
 def fetch_fundamentals_parallel(
-    tickers: list[str],
-    max_workers: int = 8,
+    tickers:     list[str],
+    max_workers: int = 10,
 ) -> dict[str, dict]:
     """
     Descarga fundamentales en paralelo.
-    Devuelve dict {ticker: datos}.
+    Timeout por ticker: 15s.
     """
     results: dict[str, dict] = {}
     total = len(tickers)
+    done  = 0
+    t0    = time.time()
+
+    print(f"  Descargando fundamentales de {total} tickers...")
 
     with concurrent.futures.ThreadPoolExecutor(
         max_workers=max_workers
     ) as executor:
-        future_to_ticker = {
+        future_map = {
             executor.submit(fetch_fundamentals, t): t
             for t in tickers
         }
-        done = 0
+
         for future in concurrent.futures.as_completed(
-            future_to_ticker
+            future_map
         ):
-            ticker = future_to_ticker[future]
+            ticker = future_map[future]
             done  += 1
             try:
-                data = future.result(timeout=45)
+                data = future.result(timeout=15)
                 results[ticker] = data
-                if done % 50 == 0:
-                    print(
-                        f"    [{done}/{total}] "
-                        f"fundamentales descargados..."
-                    )
+            except concurrent.futures.TimeoutError:
+                results[ticker] = {
+                    "ticker":   ticker,
+                    "_data_ok": False,
+                    "_error":   "timeout",
+                }
             except Exception as e:
                 results[ticker] = {
                     "ticker":   ticker,
                     "_data_ok": False,
-                    "_error":   str(e),
+                    "_error":   str(e)[:100],
                 }
+
+            if done % 100 == 0 or done == total:
+                elapsed = time.time() - t0
+                rate    = done / elapsed if elapsed else 0
+                eta     = (total - done) / rate if rate else 0
+                print(
+                    f"    [{done}/{total}] "
+                    f"{elapsed:.0f}s "
+                    f"({rate:.1f}/s, "
+                    f"ETA {eta:.0f}s)"
+                )
 
     ok  = sum(1 for d in results.values() if d.get("_data_ok"))
     bad = total - ok
-    print(f"    ✓ {ok}/{total} OK | {bad} sin datos")
+    elapsed = time.time() - t0
+    print(
+        f"  ✓ {ok}/{total} OK | {bad} sin datos | "
+        f"{elapsed:.0f}s total"
+    )
     return results
 
 
 # ── Histórico de precios ──────────────────────────────────────────────────────
 
 def fetch_price_history(
-    tickers: list[str],
-    period: str = "1y",
+    tickers:    list[str],
+    period:     str = "1y",
     chunk_size: int = 100,
 ) -> pd.DataFrame:
     """
-    Descarga histórico de precios en chunks.
-    Usa yfinance.download() que es más eficiente
-    que llamar Ticker por ticker.
-    Devuelve DataFrame con Close prices.
+    Descarga histórico en chunks con yf.download().
+    Mucho más rápido que ticker por ticker.
     """
-    cached = cache.get(f"hist_{period}_{len(tickers)}")
+    cache_key = f"hist_{period}_{len(tickers)}"
+    cached    = cache.get(cache_key)
     if cached is not None:
-        print(
-            f"    Histórico desde caché: "
-            f"{cached.shape}"
-        )
+        print(f"  Histórico desde caché: {cached.shape}")
         return cached
 
     all_closes = []
+    total      = len(tickers)
+    n_chunks   = (total + chunk_size - 1) // chunk_size
+    t0         = time.time()
+
     print(
-        f"    Descargando histórico {period} "
-        f"para {len(tickers)} tickers en chunks "
-        f"de {chunk_size}..."
+        f"  Descargando histórico {period}: "
+        f"{total} tickers en {n_chunks} chunks..."
     )
 
-    for i in range(0, len(tickers), chunk_size):
-        chunk = tickers[i:i + chunk_size]
+    for i in range(0, total, chunk_size):
+        chunk     = tickers[i:i + chunk_size]
+        chunk_num = i // chunk_size + 1
+
         try:
+            # yf.download acepta lista directamente
             hist = yf.download(
                 chunk,
                 period=period,
                 progress=False,
                 threads=True,
                 auto_adjust=True,
+                timeout=30,
             )
 
             if hist.empty:
+                print(f"    Chunk {chunk_num}: vacío")
                 continue
 
-            # yfinance devuelve MultiIndex si >1 ticker
             if isinstance(hist.columns, pd.MultiIndex):
                 close = hist["Close"]
             else:
-                # Un solo ticker
                 close = hist[["Close"]]
                 close.columns = [chunk[0]]
 
             all_closes.append(close)
-            time.sleep(0.5)  # pausa entre chunks
+            print(
+                f"    Chunk {chunk_num}/{n_chunks}: "
+                f"{close.shape[1]} tickers OK"
+            )
 
         except Exception as e:
-            print(
-                f"    Error chunk {i//chunk_size + 1}: {e}"
-            )
-            continue
+            print(f"    Chunk {chunk_num} error: {e}")
+
+        time.sleep(0.3)
 
     if not all_closes:
+        print("  ⚠ Sin datos históricos")
         return pd.DataFrame()
 
     combined = pd.concat(all_closes, axis=1)
-    # Eliminar columnas duplicadas
     combined = combined.loc[
         :, ~combined.columns.duplicated()
     ]
 
-    cache.set(f"hist_{period}_{len(tickers)}", combined)
+    elapsed = time.time() - t0
     print(
-        f"    ✓ Histórico: {combined.shape[0]} días, "
-        f"{combined.shape[1]} tickers"
+        f"  ✓ Histórico: {combined.shape[0]} días, "
+        f"{combined.shape[1]} tickers, "
+        f"{elapsed:.0f}s"
     )
+
+    cache.set(cache_key, combined)
     return combined
 
 
@@ -280,32 +307,30 @@ def fetch_macro_data() -> dict:
         return cached
 
     result = {}
-    macro_tickers = {
-        "SPY":  "^GSPC",
-        "VIX":  "^VIX",
-        "TNX":  "^TNX",   # 10Y Treasury yield
-        "DXY":  "DX-Y.NYB",
-        "QQQ":  "QQQ",
-        "IWM":  "IWM",    # Russell 2000
-        "GLD":  "GLD",
-        "HYG":  "HYG",    # High Yield
+    tickers = {
+        "SPY": "^GSPC",
+        "VIX": "^VIX",
+        "TNX": "^TNX",
+        "QQQ": "QQQ",
+        "IWM": "IWM",
     }
 
-    for label, ticker in macro_tickers.items():
+    for label, ticker in tickers.items():
         try:
             hist = yf.Ticker(ticker).history(period="20d")
-            if not hist.empty:
-                price   = float(hist["Close"].iloc[-1])
-                ret_5d  = (
-                    price / float(hist["Close"].iloc[-5]) - 1
-                ) * 100 if len(hist) >= 5 else 0
+            if not hist.empty and len(hist) >= 2:
+                price = float(hist["Close"].iloc[-1])
+                idx5  = min(5, len(hist) - 1)
+                ret_5d = (
+                    price / float(hist["Close"].iloc[-idx5]) - 1
+                ) * 100
                 ret_20d = (
                     price / float(hist["Close"].iloc[0]) - 1
                 ) * 100
                 result[label] = {
-                    "price":    price,
-                    "ret_5d":   ret_5d,
-                    "ret_20d":  ret_20d,
+                    "price":   price,
+                    "ret_5d":  round(ret_5d, 2),
+                    "ret_20d": round(ret_20d, 2),
                 }
         except Exception:
             pass

@@ -1,17 +1,18 @@
 portfolio:
-  max_positions:     20
-  max_position_size: 0.12   # 12% máximo por posición
-  min_position_size: 0.03   # 3% mínimo
+  max_positions:     15
+  max_position_size: 0.12
+  min_position_size: 0.03
 
 turnover:
-  max_one_sided_turnover: 0.30   # 30% máximo por rebalanceo
-  min_position_change:    0.02   # 2% mínimo para generar tesis
+  max_one_sided_turnover: 0.30
+  min_position_change:    0.02
 
 screening:
-  prescreen_top_n: 100    # candidatos tras pre-filtro cuantitativo
-  llm_batch_size:  8      # tickers por llamada LLM en scoring
-  min_market_cap:  500000000   # 500M mínimo
+  # Reducir de 100 a 60 para que los escenarios
+  # sean max_positions*2 = 30, no 40
+  prescreen_top_n: 60
+  llm_batch_size:  10
 
 risk:
-  max_sector_weight:  0.40   # 40% máximo en un sector
-  max_single_country: 0.90   # para portfolios globales
+  max_sector_weight:  0.40
+  max_single_country: 0.90

@@ -541,9 +541,11 @@ def send_email_report() -> bool:
     Variables de entorno requeridas:
       EMAIL_USERNAME  → tu cuenta Gmail
       EMAIL_PASSWORD  → App Password de Gmail
+      EMAIL_TO        → destinatario (opcional, 
     """
     username = os.getenv("EMAIL_USERNAME")
     password = os.getenv("EMAIL_PASSWORD")
+    to_email = os.getenv("EMAIL_TO")
 
     if not username or not password:
         print(

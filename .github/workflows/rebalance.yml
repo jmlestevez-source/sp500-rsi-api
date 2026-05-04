@@ -19,6 +19,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # PAT necesario para que el push
+          # posterior dispare otros workflows
+          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -44,6 +48,23 @@ jobs:
             ARGS="--update-universe"
           fi
           python rebalance.py $ARGS
+
+      # FIX: persistir datos entre ejecuciones
+      # Sin esto, current.json se pierde en cada run
+      # y siempre arranca desde cero → rentabilidad 0%
+      - name: Commit data persistente
+        if: always()
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/positions/current.json \
+                  data/rebalances/ \
+                  data/trades/ \
+                  data/performance/ \
+                  || true
+          git diff --staged --quiet || \
+            git commit -m "chore: rebalanceo $(date -u '+%Y-%m-%d')"
+          git push || true
 
       - name: Upload report
         uses: actions/upload-artifact@v4

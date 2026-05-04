@@ -59,10 +59,10 @@ def load_current_positions() -> dict:
 
 
 def save_results(
-    result:              dict,
-    scenarios:           dict,
-    current_positions:   dict,
-    min_position_change: float = 0.0,
+    result:            dict,
+    scenarios:         dict,
+    current_positions: dict,  # AÑADIDO
+    min_pos_change:    float = 0.0,  # AÑADIDO
 ) -> dict:
     today = datetime.now().strftime("%Y-%m-%d")
     ts    = datetime.now().isoformat()
@@ -71,37 +71,31 @@ def save_results(
     for ticker, new_weight in result["weights"].items():
         s             = scenarios.get(ticker, {})
         current_price = s.get("current_price")
-        old           = current_positions.get(ticker, {})
+        old           = current_positions.get(ticker, {})  # AÑADIDO
 
-        old_weight      = float(old.get("weight",      0.0) or 0.0)
-        old_entry_date  = old.get("entry_date")
-        old_entry_price = old.get("entry_price")
-
-        # Valores por defecto: posición nueva
-        entry_date  = today
-        entry_price = current_price
-
+        # AÑADIDO: preservar datos históricos
+        # de posiciones ya existentes
         if old:
-            # Posición ya existente: preservar fecha y precio de entrada
-            entry_date  = old_entry_date or today
-            entry_price = (
-                old_entry_price
-                if old_entry_price is not None
-                else current_price
-            )
+            entry_date  = old.get("entry_date")  or today
+            entry_price = old.get("entry_price")
 
-            # Si se amplía la posición, recalcular precio medio ponderado
+            # Si se amplía posición: precio medio ponderado
+            old_weight = float(old.get("weight", 0.0) or 0.0)
             if (
-                new_weight > old_weight + min_position_change
-                and old_entry_price is not None
-                and current_price  is not None
+                new_weight > old_weight + min_pos_change
+                and entry_price  is not None
+                and current_price is not None
                 and new_weight > 0
             ):
-                added_weight = new_weight - old_weight
-                entry_price  = (
-                    old_weight * old_entry_price
-                    + added_weight * current_price
+                added       = new_weight - old_weight
+                entry_price = (
+                    old_weight * entry_price
+                    + added * current_price
                 ) / new_weight
+        else:
+            # Posición nueva: fecha y precio de hoy
+            entry_date  = today
+            entry_price = current_price
 
         positions[ticker] = {
             "weight":         new_weight,
@@ -169,7 +163,7 @@ def get_macro_context(macro_data: dict) -> str:
 
 
 def _generate_commentary_local(
-    result:        dict,
+    result:       dict,
     macro_context: str,
     perf_metrics:  dict,
 ) -> str:
@@ -294,7 +288,6 @@ def run_rebalance(
 ) -> dict:
     start_time = time.time()
 
-    # Timeout por señal (solo Linux/Mac)
     try:
         signal.signal(signal.SIGALRM, _timeout_handler)
         signal.alarm(MAX_RUNTIME_SECONDS)
@@ -333,7 +326,6 @@ def run_rebalance(
         f"{len(current_positions)}\n"
     )
 
-    # Variables disponibles en el bloque finally
     result          = {}
     scenarios       = {}
     positions       = {}
@@ -355,9 +347,7 @@ def run_rebalance(
             if force_universe_update
             else load_universe()
         )
-        print(
-            f"  Total: {len(universe_tickers)} tickers\n"
-        )
+        print(f"  Total: {len(universe_tickers)} tickers\n")
 
         # ── PASO 2: Macro ─────────────────────────────────
         print("=" * 50)
@@ -412,17 +402,13 @@ def run_rebalance(
             top_n=prescreen_n,
         )
 
-        # FIX: garantizar que posiciones actuales
-        # siempre son elegibles aunque caigan del
-        # prescreening — evita rotación artificial
-        current_tickers = list(current_positions.keys())
-        candidates = list(
-            dict.fromkeys(candidates + current_tickers)
-        )
+        # AÑADIDO: proteger holdings actuales
+        candidates = list(dict.fromkeys(
+            candidates + list(current_positions.keys())
+        ))
 
         print(
-            f"  {len(candidates)} candidatos "
-            f"(+holdings protegidos) | "
+            f"  {len(candidates)} candidatos | "
             f"{len(no_data_tickers)} sin datos\n"
         )
 
@@ -455,23 +441,17 @@ def run_rebalance(
 
         max_pos = config["portfolio"]["max_positions"]
 
-        # FIX: al recortar top_scored, preservar
-        # posiciones actuales aunque queden fuera
-        # del top N × 2
+        # AÑADIDO: proteger holdings actuales en top_scored
         selected_names = {
             s["ticker"] for s in scored[:max_pos * 2]
         }
-        selected_names.update(current_tickers)
-
+        selected_names.update(current_positions.keys())
         top_scored = [
             s for s in scored
             if s["ticker"] in selected_names
         ]
 
-        print(
-            f"  ✓ Top {len(top_scored)} candidatos "
-            f"(incluye holdings actuales)\n"
-        )
+        print(f"  ✓ Top {len(top_scored)} candidatos\n")
 
         _check_time(start_time, "PASO 7")
 
@@ -525,22 +505,19 @@ def run_rebalance(
         new_trades = record_trades(
             result, scenarios, current_positions,
         )
-        print(
-            f"  ✓ {len(new_trades)} operaciones\n"
-        )
+        print(f"  ✓ {len(new_trades)} operaciones\n")
 
         # ── PASO 10: Guardar posiciones ───────────────────
         print("=" * 50)
         print("PASO 10: Guardando posiciones")
         print("=" * 50)
 
-        # FIX: pasar current_positions para preservar
-        # entry_date y entry_price de holdings existentes
+        # MODIFICADO: pasa current_positions
         positions = save_results(
             result,
             scenarios,
             current_positions=current_positions,
-            min_position_change=min_pos_change,
+            min_pos_change=min_pos_change,
         )
         print()
 
@@ -579,7 +556,6 @@ def run_rebalance(
         )
         result["commentary"] = summary
 
-        # Guardar commentary en el JSON del rebalanceo
         today   = datetime.now().strftime("%Y-%m-%d")
         rb_file = Path(
             f"data/rebalances/{today}_rebalance.json"
@@ -601,8 +577,8 @@ def run_rebalance(
         print("=" * 50)
 
         for ticker, weight in result["weights"].items():
-            old_w = current_weights.get(ticker, 0.0)
-            diff  = weight - old_w
+            old_w  = current_weights.get(ticker, 0.0)
+            diff   = weight - old_w
 
             if ticker in result["added_names"]:
                 action = "OPEN"
@@ -706,7 +682,6 @@ def run_rebalance(
         except (AttributeError, ValueError):
             pass
 
-    # Resumen final
     elapsed = time.time() - start_time
     mins    = int(elapsed // 60)
     secs    = int(elapsed  % 60)

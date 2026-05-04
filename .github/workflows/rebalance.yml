@@ -20,9 +20,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          # PAT necesario para que el push
-          # posterior dispare otros workflows
           token: ${{ secrets.PAT_TOKEN }}
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -49,22 +48,38 @@ jobs:
           fi
           python rebalance.py $ARGS
 
-      # FIX: persistir datos entre ejecuciones
-      # Sin esto, current.json se pierde en cada run
-      # y siempre arranca desde cero → rentabilidad 0%
       - name: Commit data persistente
         if: always()
         run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name  "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Crear carpetas si no existen para
+          # que git add no falle en primer run
+          mkdir -p data/positions \
+                   data/rebalances \
+                   data/trades \
+                   data/performance
+
+          # Crear current.json vacío si no existe
+          # para que el primer run tenga algo que commitear
+          if [ ! -f data/positions/current.json ]; then
+            echo "{}" > data/positions/current.json
+          fi
+
           git add data/positions/current.json \
                   data/rebalances/ \
                   data/trades/ \
                   data/performance/ \
-                  || true
-          git diff --staged --quiet || \
-            git commit -m "chore: rebalanceo $(date -u '+%Y-%m-%d')"
-          git push || true
+                  2>/dev/null || true
+
+          # Solo hace commit si hay cambios reales
+          if git diff --staged --quiet; then
+            echo "Sin cambios que commitear"
+          else
+            git commit -m "chore: rebalanceo $(date -u '+%Y-%m-%d %H:%M UTC')"
+            git push origin HEAD:${{ github.ref_name }}
+          fi
 
       - name: Upload report
         uses: actions/upload-artifact@v4

@@ -16,6 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 55
 
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -50,33 +54,40 @@ jobs:
 
       - name: Commit data persistente
         if: always()
+        working-directory: ${{ github.workspace }}
         run: |
-          git config --global user.name  "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          # Verificar que estamos en el repo
+          echo "Workspace: ${{ github.workspace }}"
+          ls -la
 
-          # Crear carpetas si no existen para
-          # que git add no falle en primer run
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Crear carpetas y archivos mínimos
+          # si no existen (primer run)
           mkdir -p data/positions \
                    data/rebalances \
                    data/trades \
                    data/performance
 
-          # Crear current.json vacío si no existe
-          # para que el primer run tenga algo que commitear
           if [ ! -f data/positions/current.json ]; then
             echo "{}" > data/positions/current.json
           fi
 
-          git add data/positions/current.json \
-                  data/rebalances/ \
-                  data/trades/ \
-                  data/performance/ \
-                  2>/dev/null || true
+          # Añadir archivos al índice
+          git add data/positions/current.json || true
+          git add data/rebalances/            || true
+          git add data/trades/                || true
+          git add data/performance/           || true
 
-          # Solo hace commit si hay cambios reales
-          if git diff --staged --quiet; then
+          # Comprobar si hay cambios sin --staged
+          # (compatibe con git antiguo)
+          CHANGES=$(git status --porcelain)
+          if [ -z "$CHANGES" ]; then
             echo "Sin cambios que commitear"
           else
+            echo "Cambios detectados:"
+            echo "$CHANGES"
             git commit -m "chore: rebalanceo $(date -u '+%Y-%m-%d %H:%M UTC')"
             git push origin HEAD:${{ github.ref_name }}
           fi

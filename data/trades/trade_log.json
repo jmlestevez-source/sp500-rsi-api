@@ -1,0 +1,110 @@
+[
+  {
+    "date": "2026-05-04",
+    "ticker": "NEM",
+    "action": "OPEN",
+    "price_at_trade": 108.76,
+    "weight_before": 0,
+    "weight_after": 0.12000000000067644,
+    "ev_12m": 138.281,
+    "status": "OPEN",
+    "pnl_pct": null,
+    "pnl_days": null
+  },
+  {
+    "date": "2026-05-04",
+    "ticker": "GOOGL",
+    "action": "OPEN",
+    "price_at_trade": 383.57,
+    "weight_before": 0,
+    "weight_after": 0.11999999999989512,
+    "ev_12m": 482.52750000000003,
+    "status": "OPEN",
+    "pnl_pct": null,
+    "pnl_days": null
+  },
+  {
+    "date": "2026-05-04",
+    "ticker": "ZM",
+    "action": "OPEN",
+    "price_at_trade": 107.12,
+    "weight_before": 0,
+    "weight_after": 0.12000000000063128,
+    "ev_12m": 132.89249999999998,
+    "status": "OPEN",
+    "pnl_pct": null,
+    "pnl_days": null
+  },
+  {
+    "date": "2026-05-04",
+    "ticker": "ANET",
+    "action": "OPEN",
+    "price_at_trade": 174.52,
+    "weight_before": 0,
+    "weight_after": 0.1199999999998352,
+    "ev_12m": 211.711,
+    "status": "OPEN",
+    "pnl_pct": null,
+    "pnl_days": null
+  },
+  {
+    "date": "2026-05-04",
+    "ticker": "MLI",
+    "action": "OPEN",
+    "price_at_trade": 131.145,
+    "weight_before": 0,
+    "weight_after": 0.12000000000056728,
+    "ev_12m": 160.5,
+    "status": "OPEN",
+    "pnl_pct": null,
+    "pnl_days": null
+  },
+  {
+    "date": "2026-05-04",
+    "ticker": "VIRT",
+    "action": "OPEN",
+    "price_at_trade": 49.19,
+    "weight_before": 0,
+    "weight_after": 0.1200000000008549,
+    "ev_12m": 59.839999999999996,
+    "status": "OPEN",
+    "pnl_pct": null,
+    "pnl_days": null
+  },
+  {
+    "date": "2026-05-04",
+    "ticker": "JHG",
+    "action": "OPEN",
+    "price_at_trade": 51.595,
+    "weight_before": 0,
+    "weight_after": 0.1200000000005543,
+    "ev_12m": 62.234,
+    "status": "OPEN",
+    "pnl_pct": null,
+    "pnl_days": null
+  },
+  {
+    "date": "2026-05-04",
+    "ticker": "AMZN",
+    "action": "OPEN",
+    "price_at_trade": 271.445,
+    "weight_before": 0,
+    "weight_after": 0.12000000000100015,
+    "ev_12m": 327.0,
+    "status": "OPEN",
+    "pnl_pct": null,
+    "pnl_days": null
+  },
+  {
+    "date": "2026-05-04",
+    "ticker": "UTHR",
+    "action": "OPEN",
+    "price_at_trade": 576.095,
+    "weight_before": 0,
+    "weight_after": 0.03999999999598529,
+    "ev_12m": 693.25,
+    "status": "OPEN",
+    "pnl_pct": null,
+    "pnl_days": null
+  }
+]

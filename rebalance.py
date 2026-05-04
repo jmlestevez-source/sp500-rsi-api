@@ -679,4 +679,66 @@ def run_rebalance(
                 result, macro_context, perf_metrics
             )
 
-       
+        try:
+            if result:
+                generate_email_report(
+                    result          = result,
+                    all_thesis      = all_thesis,
+                    summary         = summary,
+                    positions       = positions,
+                    perf_metrics    = perf_metrics,
+                    no_data_tickers = no_data_tickers,
+                    new_trades      = new_trades,
+                )
+                send_email_report()
+        except Exception as e2:
+            print(f"  Error email parcial: {e2}")
+
+    except Exception as e:
+        print(f"\n✗ ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
+
+    finally:
+        try:
+            signal.alarm(0)
+        except (AttributeError, ValueError):
+            pass
+
+    # Resumen final
+    elapsed = time.time() - start_time
+    mins    = int(elapsed // 60)
+    secs    = int(elapsed  % 60)
+
+    print(f"\n{'='*60}")
+    print(f"✅ Completado en {mins}m {secs}s")
+    print(f"{'='*60}")
+
+    print("\n📊 Llamadas API:")
+    for model, count in sorted(
+        request_counts.items(),
+        key=lambda x: -x[1],
+    ):
+        print(f"   {model}: {count}")
+
+    if summary:
+        print(f"\n{summary}\n")
+
+    return result
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--update-universe",
+        action="store_true",
+        help="Forzar actualización Russell 1000",
+    )
+    args = parser.parse_args()
+
+    run_rebalance(
+        force_universe_update=args.update_universe,
+    )

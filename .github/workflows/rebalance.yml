@@ -16,15 +16,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 55
 
-    defaults:
-      run:
-        working-directory: ${{ github.workspace }}
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.PAT_TOKEN }}
           fetch-depth: 0
 
       - name: Setup Python
@@ -54,17 +52,10 @@ jobs:
 
       - name: Commit data persistente
         if: always()
-        working-directory: ${{ github.workspace }}
         run: |
-          # Verificar que estamos en el repo
-          echo "Workspace: ${{ github.workspace }}"
-          ls -la
-
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Crear carpetas y archivos mínimos
-          # si no existen (primer run)
           mkdir -p data/positions \
                    data/rebalances \
                    data/trades \
@@ -74,20 +65,15 @@ jobs:
             echo "{}" > data/positions/current.json
           fi
 
-          # Añadir archivos al índice
           git add data/positions/current.json || true
           git add data/rebalances/            || true
           git add data/trades/                || true
           git add data/performance/           || true
 
-          # Comprobar si hay cambios sin --staged
-          # (compatibe con git antiguo)
           CHANGES=$(git status --porcelain)
           if [ -z "$CHANGES" ]; then
             echo "Sin cambios que commitear"
           else
-            echo "Cambios detectados:"
-            echo "$CHANGES"
             git commit -m "chore: rebalanceo $(date -u '+%Y-%m-%d %H:%M UTC')"
             git push origin HEAD:${{ github.ref_name }}
           fi

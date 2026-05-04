@@ -59,26 +59,59 @@ def load_current_positions() -> dict:
 
 
 def save_results(
-    result:    dict,
-    scenarios: dict,
+    result:              dict,
+    scenarios:           dict,
+    current_positions:   dict,
+    min_position_change: float = 0.0,
 ) -> dict:
     today = datetime.now().strftime("%Y-%m-%d")
     ts    = datetime.now().isoformat()
 
     positions = {}
-    for ticker, weight in result["weights"].items():
-        s = scenarios.get(ticker, {})
+    for ticker, new_weight in result["weights"].items():
+        s             = scenarios.get(ticker, {})
+        current_price = s.get("current_price")
+        old           = current_positions.get(ticker, {})
+
+        old_weight      = float(old.get("weight",      0.0) or 0.0)
+        old_entry_date  = old.get("entry_date")
+        old_entry_price = old.get("entry_price")
+
+        # Valores por defecto: posición nueva
+        entry_date  = today
+        entry_price = current_price
+
+        if old:
+            # Posición ya existente: preservar fecha y precio de entrada
+            entry_date  = old_entry_date or today
+            entry_price = (
+                old_entry_price
+                if old_entry_price is not None
+                else current_price
+            )
+
+            # Si se amplía la posición, recalcular precio medio ponderado
+            if (
+                new_weight > old_weight + min_position_change
+                and old_entry_price is not None
+                and current_price  is not None
+                and new_weight > 0
+            ):
+                added_weight = new_weight - old_weight
+                entry_price  = (
+                    old_weight * old_entry_price
+                    + added_weight * current_price
+                ) / new_weight
+
         positions[ticker] = {
-            "weight":         weight,
-            "entry_date":     today,
-            "entry_price":    s.get("current_price"),
+            "weight":         new_weight,
+            "entry_date":     entry_date,
+            "entry_price":    entry_price,
             "ev_12m":         s.get("ev_12m"),
             "kill_condition": s.get("kill_condition"),
         }
 
-    Path("data/positions").mkdir(
-        parents=True, exist_ok=True
-    )
+    Path("data/positions").mkdir(parents=True, exist_ok=True)
     with open("data/positions/current.json", "w") as f:
         json.dump(positions, f, indent=2)
 
@@ -97,12 +130,8 @@ def save_results(
         },
     }
 
-    Path("data/rebalances").mkdir(
-        parents=True, exist_ok=True
-    )
-    rb_path = Path(
-        f"data/rebalances/{today}_rebalance.json"
-    )
+    Path("data/rebalances").mkdir(parents=True, exist_ok=True)
+    rb_path = Path(f"data/rebalances/{today}_rebalance.json")
     with open(rb_path, "w") as f:
         json.dump(rebalance, f, indent=2)
 
@@ -140,14 +169,10 @@ def get_macro_context(macro_data: dict) -> str:
 
 
 def _generate_commentary_local(
-    result:       dict,
+    result:        dict,
     macro_context: str,
     perf_metrics:  dict,
 ) -> str:
-    """
-    Fallback: genera commentary sin LLM
-    usando solo los datos disponibles.
-    """
     today    = datetime.now().strftime("%Y-%m-%d")
     weights  = result["weights"]
     added    = result["added_names"]
@@ -159,7 +184,6 @@ def _generate_commentary_local(
     alpha    = perf_metrics.get("alpha_pct",             0.0)
     n_pos    = len(weights)
 
-    # Top 5 posiciones
     top5 = sorted(
         weights.items(), key=lambda x: -x[1]
     )[:5]
@@ -270,7 +294,7 @@ def run_rebalance(
 ) -> dict:
     start_time = time.time()
 
-    # Timeout por señal (Linux)
+    # Timeout por señal (solo Linux/Mac)
     try:
         signal.signal(signal.SIGALRM, _timeout_handler)
         signal.alarm(MAX_RUNTIME_SECONDS)
@@ -302,12 +326,14 @@ def run_rebalance(
     cache.cleanup_old(keep_days=2)
     config            = load_config()
     current_positions = load_current_positions()
+    min_pos_change    = config["turnover"]["min_position_change"]
+
     print(
         f"Posiciones actuales: "
         f"{len(current_positions)}\n"
     )
 
-    # Variables que necesitamos en el bloque finally
+    # Variables disponibles en el bloque finally
     result          = {}
     scenarios       = {}
     positions       = {}
@@ -385,8 +411,18 @@ def run_rebalance(
             price_history,
             top_n=prescreen_n,
         )
+
+        # FIX: garantizar que posiciones actuales
+        # siempre son elegibles aunque caigan del
+        # prescreening — evita rotación artificial
+        current_tickers = list(current_positions.keys())
+        candidates = list(
+            dict.fromkeys(candidates + current_tickers)
+        )
+
         print(
-            f"  {len(candidates)} candidatos | "
+            f"  {len(candidates)} candidatos "
+            f"(+holdings protegidos) | "
             f"{len(no_data_tickers)} sin datos\n"
         )
 
@@ -417,11 +453,24 @@ def run_rebalance(
             reverse=True,
         )
 
-        max_pos    = config["portfolio"]["max_positions"]
-        top_scored = scored[:max_pos * 2]
+        max_pos = config["portfolio"]["max_positions"]
+
+        # FIX: al recortar top_scored, preservar
+        # posiciones actuales aunque queden fuera
+        # del top N × 2
+        selected_names = {
+            s["ticker"] for s in scored[:max_pos * 2]
+        }
+        selected_names.update(current_tickers)
+
+        top_scored = [
+            s for s in scored
+            if s["ticker"] in selected_names
+        ]
 
         print(
-            f"  ✓ Top {len(top_scored)} candidatos\n"
+            f"  ✓ Top {len(top_scored)} candidatos "
+            f"(incluye holdings actuales)\n"
         )
 
         _check_time(start_time, "PASO 7")
@@ -485,7 +534,14 @@ def run_rebalance(
         print("PASO 10: Guardando posiciones")
         print("=" * 50)
 
-        positions = save_results(result, scenarios)
+        # FIX: pasar current_positions para preservar
+        # entry_date y entry_price de holdings existentes
+        positions = save_results(
+            result,
+            scenarios,
+            current_positions=current_positions,
+            min_position_change=min_pos_change,
+        )
         print()
 
         # ── PASO 11: Performance ──────────────────────────
@@ -514,8 +570,6 @@ def run_rebalance(
         )
 
         # ── PASO 12: Commentary ───────────────────────────
-        # Se genera ANTES de las tesis para aprovechar
-        # que los modelos aún no tienen rate limit
         print("=" * 50)
         print("PASO 12: Commentary")
         print("=" * 50)
@@ -525,6 +579,7 @@ def run_rebalance(
         )
         result["commentary"] = summary
 
+        # Guardar commentary en el JSON del rebalanceo
         today   = datetime.now().strftime("%Y-%m-%d")
         rb_file = Path(
             f"data/rebalances/{today}_rebalance.json"
@@ -545,19 +600,15 @@ def run_rebalance(
         print("PASO 13: Tesis")
         print("=" * 50)
 
-        min_change = config["turnover"][
-            "min_position_change"
-        ]
-
         for ticker, weight in result["weights"].items():
-            old_w  = current_weights.get(ticker, 0.0)
-            diff   = weight - old_w
+            old_w = current_weights.get(ticker, 0.0)
+            diff  = weight - old_w
 
             if ticker in result["added_names"]:
                 action = "OPEN"
-            elif diff >= min_change:
+            elif diff >= min_pos_change:
                 action = "ADD"
-            elif diff <= -min_change:
+            elif diff <= -min_pos_change:
                 action = "TRIM"
             else:
                 action = "HOLD"
@@ -623,72 +674,9 @@ def run_rebalance(
         print(f"\n⚠ TIMEOUT: {e}")
         print("Enviando email con lo disponible...")
 
-        # Generar commentary local si no lo tenemos
         if not summary and result:
             summary = _generate_commentary_local(
                 result, macro_context, perf_metrics
             )
 
-        try:
-            if result:
-                generate_email_report(
-                    result          = result,
-                    all_thesis      = all_thesis,
-                    summary         = summary,
-                    positions       = positions,
-                    perf_metrics    = perf_metrics,
-                    no_data_tickers = no_data_tickers,
-                    new_trades      = new_trades,
-                )
-                send_email_report()
-        except Exception as e2:
-            print(f"  Error email parcial: {e2}")
-
-    except Exception as e:
-        print(f"\n✗ ERROR: {e}")
-        import traceback
-        traceback.print_exc()
-        raise
-
-    finally:
-        try:
-            signal.alarm(0)
-        except (AttributeError, ValueError):
-            pass
-
-    # Resumen final
-    elapsed = time.time() - start_time
-    mins    = int(elapsed // 60)
-    secs    = int(elapsed  % 60)
-
-    print(f"\n{'='*60}")
-    print(f"✅ Completado en {mins}m {secs}s")
-    print(f"{'='*60}")
-
-    print("\n📊 Llamadas API:")
-    for model, count in sorted(
-        request_counts.items(),
-        key=lambda x: -x[1],
-    ):
-        print(f"   {model}: {count}")
-
-    if summary:
-        print(f"\n{summary}\n")
-
-    return result
-
-
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--update-universe",
-        action="store_true",
-        help="Forzar actualización Russell 1000",
-    )
-    args = parser.parse_args()
-
-    run_rebalance(
-        force_universe_update=args.update_universe,
-    )
+       

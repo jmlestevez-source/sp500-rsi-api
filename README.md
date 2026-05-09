@@ -33,7 +33,3 @@ Cada lunes a las 9:00 UTC el sistema:
 
 > ⚠️ **Aviso:** Esto no es un consejo de inversión.
 > Es un sistema personal de gestión de cartera propia.
-
----
-
-## Pipeline completo

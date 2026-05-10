@@ -2,9 +2,9 @@ name: Weekly Portfolio Rebalance
 
 on:
   schedule:
-    # 0 = Domingo (Sunday)
-    # 13:00 UTC son las 14:00 en España (invierno)
-    - cron: "0 13 * * 0"
+    # 6 = Sábado 
+    # 8:00 UTC son las 09:00 en España (invierno)
+    - cron: "0 8 * * 6"
   workflow_dispatch:
     inputs:
       update_universe:

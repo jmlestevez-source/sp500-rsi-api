@@ -1,0 +1,31 @@
+{
+  "timestamp": "2026-05-10T11:31:32.182494",
+  "portfolio": {
+    "EOG": 0.11999999999999751,
+    "ANET": 0.11999999999999905,
+    "ADI": 0.05999999999918003,
+    "AMZN": 0.11999999999999834,
+    "NEM": 0.11999999999999889,
+    "VIRT": 0.1199999999999981,
+    "GOOGL": 0.11999999999999773,
+    "ZM": 0.11999999999999897,
+    "JHG": 0.10000000000083134
+  },
+  "changes": {
+    "added": [
+      "EOG",
+      "ADI"
+    ],
+    "dropped": [
+      "MLI",
+      "UTHR"
+    ],
+    "turnover": 0.17999999999944402
+  },
+  "metrics": {
+    "expected_return": 0.236646060800831,
+    "risk_score": 0.3031687282823222,
+    "risk_adjusted_return": 0.7780091731888419
+  },
+  "commentary": "**Rebalanceo Semanal**\n\n**1. Macro**: El mercado accionario muestra una tendencia alcista, con el SPY subiendo un 2.8% en los \u00faltimos 5 d\u00edas y el QQQ un 5.7%. La Fed mantiene una postura cautelosa, lo que podr\u00eda influir en la volatilidad del mercado.\n\n**2. Compras/ventas**: He realizado cambios en el portfolio, agregando posiciones en **EOG** y **ADI**, y eliminando **MLI** y **UTHR**. El turnover ha sido del 18.0%.\n\n**3. Mantenidas**: Las posiciones en **ANET**, **ZM**, **NEM**, **AMZN**, **VIRT**, **GOOGL** y **JHG** se mantienen sin cambios.\n\n**4. Performance vs SPY**: El portfolio ha tenido un rendimiento negativo del -0.03% en comparaci\u00f3n con el SPY, que ha subido un 2.75%. El alpha ha sido de -2.78%.\n\n**5. Vigilar**: Estar\u00e9 atento a los cambios en el contexto macro y ajustar\u00e9 el portfolio seg\u00fan sea necesario.\n\nNo es consejo de inversi\u00f3n, es como estoy gestionando mi propio capital."
+}

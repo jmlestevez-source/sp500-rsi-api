@@ -67,7 +67,7 @@
     "weight_before": 0,
     "weight_after": 0.1200000000008549,
     "ev_12m": 59.839999999999996,
-    "status": "OPEN",
+    "status": "CLOSED",
     "pnl_pct": null,
     "pnl_days": null
   },
@@ -169,6 +169,56 @@
     "exit_price": 564.94,
     "pnl_pct": -1.94,
     "pnl_days": 6,
+    "status": "CLOSED"
+  },
+  {
+    "date": "2026-05-16",
+    "ticker": "SNDK",
+    "action": "OPEN",
+    "price_at_trade": 1407.61,
+    "weight_before": 0,
+    "weight_after": 0.12000000000000008,
+    "ev_12m": 1780.0,
+    "status": "OPEN",
+    "pnl_pct": null,
+    "pnl_days": null
+  },
+  {
+    "date": "2026-05-16",
+    "ticker": "TPL",
+    "action": "OPEN",
+    "price_at_trade": 385.17,
+    "weight_before": 0,
+    "weight_after": 0.06000000447868619,
+    "ev_12m": 469.15900000000005,
+    "status": "OPEN",
+    "pnl_pct": null,
+    "pnl_days": null
+  },
+  {
+    "date": "2026-05-16",
+    "ticker": "GOOGL",
+    "action": "TRIM",
+    "price_at_trade": 396.78,
+    "weight_before": 0.11999999999999773,
+    "weight_after": 0.06000001157518746,
+    "ev_12m": 440.998,
+    "status": "OPEN",
+    "pnl_pct": null,
+    "pnl_days": null
+  },
+  {
+    "date": "2026-05-16",
+    "ticker": "VIRT",
+    "action": "CLOSE",
+    "price_at_trade": 54.49,
+    "weight_before": 0.1199999999999981,
+    "weight_after": 0,
+    "entry_price": 49.19,
+    "entry_date": "2026-05-04",
+    "exit_price": 54.49,
+    "pnl_pct": 10.77,
+    "pnl_days": 12,
     "status": "CLOSED"
   }
 ]

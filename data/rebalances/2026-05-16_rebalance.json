@@ -1,0 +1,31 @@
+{
+  "timestamp": "2026-05-16T09:30:34.910137",
+  "portfolio": {
+    "SNDK": 0.12000000000000008,
+    "TPL": 0.06000000447868619,
+    "ZM": 0.12000000000000015,
+    "NEM": 0.12000000000000012,
+    "ANET": 0.1200000000000001,
+    "AMZN": 0.12000000000000004,
+    "EOG": 0.12000000000000015,
+    "ADI": 0.05999999769090795,
+    "JHG": 0.0999999862552178,
+    "GOOGL": 0.06000001157518746
+  },
+  "changes": {
+    "added": [
+      "SNDK",
+      "TPL"
+    ],
+    "dropped": [
+      "VIRT"
+    ],
+    "turnover": 0.18000000447869408
+  },
+  "metrics": {
+    "expected_return": 0.17974724988475813,
+    "risk_score": 0.29926393814814733,
+    "risk_adjusted_return": 0.59863082790872
+  },
+  "commentary": "**Rebalanceo Semanal**\n\nEn esta semana, he realizado ajustes en mi portfolio para mantener la estrategia de inversi\u00f3n. Los cambios incluyen:\n\n* Compras: SNDK y TPL\n* Ventas: VIRT\n\nEl turnover ha sido del 18.0%, lo que indica un movimiento significativo en el portfolio. La valoraci\u00f3n de 12 meses (EV 12M) tambi\u00e9n se ha mantenido en 18.0%.\n\n**An\u00e1lisis**\n\n* **Macro**: La tendencia alcista moderada se mantiene, con la Fed manteniendo los tipos altos (TNX: 4.59%). Esto sugiere que estamos en una fase de expansi\u00f3n tard\u00eda.\n* **Compras/Ventas**: He comprado SNDK y TPL, y vendido VIRT, para ajustar la composici\u00f3n del portfolio.\n* **Mantenidas**: Las posiciones en ZM, EOG, NEM, ANET, AMZN, JHG, GOOGL y ADI se mantienen sin cambios.\n* **Performance vs SPY**: El portfolio ha perdido -2.12% en comparaci\u00f3n con el SPY, que ha ganado +2.89%. El alpha es de -5.01%, lo que indica un desempe\u00f1o inferior al mercado.\n* **Vigilar**: Estar\u00e9 atento a los cambios en el contexto macro y ajustar\u00e9 el portfolio seg\u00fan sea necesario.\n\n**Conclusi\u00f3n**\n\nNo es consejo de inversi\u00f3n, es como estoy gestionando mi propio capital. Estoy comprometido con la estrategia de inversi\u00f3n y ajustar\u00e9 el portfolio para maximizar los rendimientos. La pr\u00f3xima semana, seguir\u00e9 monitoreando el mercado y ajustar\u00e9 el portfolio seg\u00fan sea necesario."
+}
